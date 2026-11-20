@@ -4115,5 +4115,6 @@ fetch("logo-mark-dark.png").then(r=>r.ok?r.blob():null).then(b=>b&&blobToDataUrl
   db.doc("config/vermieter").onSnapshot(s=>{ st.cfg=s.exists?s.data():{}; later(); },()=>{});
 })();
 </script>
+<script src="sprache-web.js"></script>
 </body>
 </html>

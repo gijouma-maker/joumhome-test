@@ -4,6 +4,7 @@ const EN={
 "Start": "Home",
 "Häuser": "Buildings",
 "Geld": "Money",
+"Finanzen": "Finances",
 "Tickets": "Tickets",
 "Gemeinschaft": "Community",
 "Hausverwaltung": "Property management",

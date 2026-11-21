@@ -1,8 +1,9 @@
-/* JoumHome – Sprachausgabe über den Browser (für GitHub Pages) */
+/* JoumHome – Sprachausgabe über den Browser (für GitHub Pages / ohne Claude-Anmeldung)
+   Nutzt die eingebaute Vorlesefunktion von Chrome, Edge, Safari, Android und iPhone. */
 (function(){
   if(!("speechSynthesis" in window) || window.__webTts) return;
   var S=window.speechSynthesis, cbs=[];
-  var MALE=/\b(male|mann|daniel|markus|stefan|thomas|yannick|conrad|killian|florian|guy|ryan|andrew|christopher|eric|davis|tony|george|james|david|mark|jorge|pablo|diego|alvaro|henri|paul|dmitri|dmitry|pavel|maxim|ahmet|tolga|hamed|naayf|shakir)\b/i;
+  var MALE=/\b(male|mann|daniel|markus|stefan|thomas|yannick|conrad|killian|florian|guy|ryan|andrew|christopher|eric|davis|tony|george|james|david|mark|jorge|pablo|diego|alvaro|henri|paul|thomas|dmitri|dmitry|pavel|maxim|ahmet|tolga|hamed|naayf|shakir)\b/i;
   var FEMALE=/\b(female|frau|anna|petra|helena|katja|hedda|marlene|vicki|amala|zira|samantha|karen|susan|hazel|jenny|aria|emma|sonia|libby|elena|laura|lucia|paulina|monica|irina|svetlana|ekaterina|milena|yelda|filiz|emel|zariyah|salma|hoda|julie|amelie|denise|audrey|google deutsch|google fran)\b/i;
   function fire(s){ cbs.forEach(function(c){ try{ c({state:s}); }catch(e){} }); }
   function pick(lang,voice){
@@ -25,6 +26,7 @@
   };
   try{ S.getVoices(); S.onvoiceschanged=function(){ S.getVoices(); }; }catch(e){}
   window.__webTts=tts;
+  /* In die App einhängen, wenn Claude keine Sprachausgabe liefert */
   function attach(){ try{
     if(typeof st==="undefined") return false;
     if(!st.tts){ st.tts=tts; }

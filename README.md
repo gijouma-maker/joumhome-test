@@ -1,10 +1,12 @@
-# JoumHome – Testversion
+# JoumHome – Testversion (GitHub Pages)
 
-Testversion der Vermieter-App JoumHome. Alle Daten sind erfunden und werden nur im Browser des jeweiligen Geräts gespeichert.
+Stand: 22.11.2026 – aktuelle App-Version mit GitHub-Modus.
 
-- Master-Admin: Hauptlink ohne Zusatz
-- Admin / Vermieter: `?rolle=admin`
-- Mieter: `?rolle=mieter&id=<Mieter-ID>`
-- Handwerker: `?rolle=handwerker&id=<Kontakt-ID>`
+- Ohne Zusatz im Link = Master-Admin
+- `?rolle=admin` = Admin
+- `?rolle=mieter&id=<mieterId>` = Mieter
+- `?rolle=handwerker&id=<id>` = Handwerker
 
-Links erstellt der Master-Admin auf der Startseite über „Link versenden“.
+Links zum Verschicken: in der App auf **Start → „Link versenden“**.
+Alle Daten bleiben nur im Browser des jeweiligen Geräts (keine gemeinsame Datenbank, keine echte Anmeldung).
+KI-Funktionen gibt es nur in der Claude-Version.

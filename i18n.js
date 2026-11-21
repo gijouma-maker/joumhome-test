@@ -6,6 +6,7 @@ const I18N = {
 "Start":["Ana sayfa","الرئيسية","Главная","Inicio","Accueil"],
 "Häuser":["Binalar","المباني","Дома","Edificios","Immeubles"],
 "Geld":["Para","المال","Деньги","Dinero","Argent"],
+"Finanzen":["Finans","المالية","Финансы","Finanzas","Finances"],
 "Tickets":["Talepler","التذاكر","Заявки","Incidencias","Tickets"],
 "Gemeinschaft":["Topluluk","المجتمع","Сообщество","Comunidad","Communauté"],
 "Hausverwaltung":["Mülk yönetimi","إدارة العقارات","Управление недвижимостью","Administración de fincas","Gestion locative"],

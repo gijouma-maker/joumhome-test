@@ -415,7 +415,7 @@ html[data-theme="kontrast"] h1,html[data-theme="kontrast"] h2,html[data-theme="k
   <button class="icon-btn help-btn" id="helpBtn" aria-label="Hilfe-Hinweise an/aus" data-hint="Hilfe-Hinweise ein- oder ausschalten. Halte eine Funktion gedrückt, um ihre Erklärung zu sehen.">?</button>
   <button class="icon-btn" id="ttsBtn" aria-label="Sprachhilfe" data-hint="Sprachhilfe: an/aus, männliche oder weibliche Stimme und Geschwindigkeit wählen."><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg></button>
   <select id="langSel" aria-label="Sprache" data-notr></select>
-  <button class="func-btn" data-act="funcs" aria-label="Funktionen" data-hint="Funktionen: Design, größere Schrift, Sprache, Sprachhilfe und Hilfe-Hinweise."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg><span>Funktionen</span></button>
+  <button class="func-btn" data-act="funcs" aria-label="Funktionen" data-hint="Funktionen: Design, größere Schrift, Sprache, Sprachhilfe und Hilfe-Hinweise."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="7" r="3"/><circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/></svg><span>Funktionen</span></button>
   <button class="icon-btn" data-act="settings" aria-label="Mein Profil" title="Mein Profil">
     <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
   </button>
@@ -443,8 +443,10 @@ html[data-theme="kontrast"] h1,html[data-theme="kontrast"] h2,html[data-theme="k
 <script src="i18n-hints.js"></script>
 <script src="i18n-en.js"></script>
 <script src="i18n-tenant.js"></script>
+<script src="i18n-hi.js"></script>
 <script src="sprache-web.js"></script>
 <script src="github-modus.js"></script>
+<script src="sprachsteuerung.js"></script>
 <script>
 "use strict";
 /* ---------- Konstanten ---------- */
@@ -460,7 +462,7 @@ const KTR = ["Vermieter","Mieter (verursacht)"];
 const isMK = a => a.kostentraeger==="Mieter (verursacht)";
 const PRIO = ["Normal","Dringend"];
 const QUELLE = ["Mieter per WhatsApp","Mieter per Telefon","Mieter persönlich","Selbst festgestellt","Hausmeister / Nachbar"];
-const COLS = ["objekte","wohnungen","mieter","ausgaben","verstoesse","zahlungen","zaehler","schaeden","reinigung","brett","garten","medien","protokolle","rollen","speedtests","vertraege","portal","eingang","anfragen","nachrichten","inventar","fixkosten","handwerker","auftraege","mahnungen","hwportal","hweingang"];
+const COLS = ["objekte","wohnungen","mieter","ausgaben","verstoesse","zahlungen","zaehler","schaeden","reinigung","brett","garten","medien","protokolle","rollen","speedtests","vertraege","portal","eingang","anfragen","nachrichten","inventar","fixkosten","handwerker","auftraege","mahnungen","hwportal","hweingang","dokumente","inserate"];
 
 /* ---------- Zustand ---------- */
 const st = {
@@ -487,8 +489,8 @@ const assetUrl = id => id ? (window.__jhAsset?window.__jhAsset(id):"/_blob/"+enc
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* Übersetzung */
-function tr0(s,L){ L=L||st.lang; if(L==="de"||!s) return s; const i=LIDX[L]; if(i==null) return s; const e=I18N[s]; if(e) return e[i];
-  for(const [re,arr] of I18P){ const m=s.match(re); if(m) return arr[i].replace(/\$(\d)/g,(_,n)=>{ const p=m[n]||""; const r=tr0(p,L); return r==null?p:r; }); }
+function tr0(s,L){ L=L||st.lang; if(L==="de"||!s) return s; const i=LIDX[L]; if(i==null) return s; const e=I18N[s]; if(e) return e[i]??e[5];
+  for(const [re,arr] of I18P){ const m=s.match(re); if(m) return (arr[i]??arr[5]).replace(/\$(\d)/g,(_,n)=>{ const p=m[n]||""; const r=tr0(p,L); return r==null?p:r; }); }
   return null; }
 function tr(s,L){ const r=tr0(s,L); return r==null?s:r; }
 function trText(s){ const t=s.trim(); if(!t) return s; let r=tr0(t); if(r==null && t.includes(" · ")) r=t.split(" · ").map(p=>{const x=tr0(p);return x==null?p:x;}).join(" · "); return r==null?s:s.replace(t,r); }
@@ -544,7 +546,7 @@ const VOICES=[["rounded","Warm & tief","männlich · Assistent"],["airy","Hell &
 st.voice=(()=>{ try{ return localStorage.getItem("hv_voice")||"rounded"; }catch(e){ return "rounded"; } })();
 st.rate=(()=>{ try{ return Number(localStorage.getItem("hv_rate"))||1.05; }catch(e){ return 1.05; } })();
 function say(text){ if(!st.tts) return Promise.resolve(); return st.tts.speak(String(text).slice(0,2000),{language:LOCALE[st.lang]||st.lang,voice:st.voice,rate:st.rate}).catch(()=>{}); }
-const VOICE_PROBE={de:"Guten Tag. Ich bin Ihr Assistent für JoumHome. Alle Systeme sind bereit.",tr:"İyi günler. Ben JoumHome asistanınızım. Tüm sistemler hazır.",ar:"مرحباً. أنا مساعدك في JoumHome. جميع الأنظمة جاهزة.",ru:"Добрый день. Я ваш ассистент JoumHome. Все системы готовы.",es:"Buenos días. Soy su asistente de JoumHome. Todos los sistemas están listos.",fr:"Bonjour. Je suis votre assistant JoumHome. Tous les systèmes sont prêts.",en:"Good day. I am your JoumHome assistant. All systems are ready."};
+const VOICE_PROBE={de:"Guten Tag. Ich bin Ihr Assistent für JoumHome. Alle Systeme sind bereit.",tr:"İyi günler. Ben JoumHome asistanınızım. Tüm sistemler hazır.",ar:"مرحباً. أنا مساعدك في JoumHome. جميع الأنظمة جاهزة.",ru:"Добрый день. Я ваш ассистент JoumHome. Все системы готовы.",es:"Buenos días. Soy su asistente de JoumHome. Todos los sistemas están listos.",fr:"Bonjour. Je suis votre assistant JoumHome. Tous les systèmes sont prêts.",en:"Good day. I am your JoumHome assistant. All systems are ready.",hi:"नमस्ते। मैं JoumHome का आपका सहायक हूँ। सभी सिस्टम तैयार हैं।"};
 function openVoice(){
   if(!st.tts){ toast("Vorlesen ist in dieser Ansicht nicht verfügbar"); return; }
   openSheet(`<div class="spread"><h2>Sprachhilfe</h2><button class="btn sm ghost" data-act="close">Schließen</button></div>
@@ -567,7 +569,7 @@ function openVoice(){
   document.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{ setRate(Number(b.dataset.rt)); say(VOICE_PROBE[st.lang]||VOICE_PROBE.de); });
   document.querySelectorAll("[data-spk]").forEach(b=>b.onclick=()=>{ const on=b.dataset.spk==="1"; document.querySelectorAll("[data-spk]").forEach(x=>x.setAttribute("aria-pressed",String(x===b))); setSpeak(on); });
 }
-const LANG_SAY={de:"Sprache Deutsch. Ich erkläre dir die Funktionen jetzt auf Deutsch.",tr:"Dil Türkçe. Fonksiyonları artık sana Türkçe açıklıyorum.",ar:"اللغة العربية. سأشرح لك الوظائف الآن باللغة العربية.",ru:"Язык русский. Теперь я объясняю функции на русском.",es:"Idioma español. Ahora te explico las funciones en español.",fr:"Langue française. Je t'explique maintenant les fonctions en français.",en:"Language English. I will now explain the functions in English."};
+const LANG_SAY={de:"Sprache Deutsch. Ich erkläre dir die Funktionen jetzt auf Deutsch.",tr:"Dil Türkçe. Fonksiyonları artık sana Türkçe açıklıyorum.",ar:"اللغة العربية. سأشرح لك الوظائف الآن باللغة العربية.",ru:"Язык русский. Теперь я объясняю функции на русском.",es:"Idioma español. Ahora te explico las funciones en español.",fr:"Langue française. Je t'explique maintenant les fonctions en français.",en:"Language English. I will now explain the functions in English.",hi:"भाषा हिन्दी। अब मैं आपको फ़ंक्शन हिन्दी में समझाऊँगा।"};
 $("#langSel").addEventListener("change",e=>{ setLang(e.target.value); if(st.tts&&(st.speakHints||st.chatSpeak)) say(LANG_SAY[st.lang]||LANG_SAY.de); });
 
 /* Nachrichten an Mieter in deren Sprache */
@@ -578,7 +580,7 @@ ar:{hi:n=>`مرحبًا ${n}`,v1:a=>`لاحظنا مخالفة لنظام الم
 ru:{hi:n=>`Здравствуйте, ${n}`,v1:a=>`мы заметили нарушение правил дома: ${a}. Пожалуйста, обратите на это внимание. Спасибо!`,v2:a=>`к сожалению, снова нарушены правила дома: ${a}. Пожалуйста, соблюдайте правила. Спасибо!`,v3:a=>`несмотря на предыдущие замечания, правила дома снова нарушены (${a}). Вы получите письменное предупреждение по почте.`,miete:(mo,b)=>`за ${mo} ещё не оплачено ${b}. Пожалуйста, переведите сумму в ближайшее время. Спасибо!`,kw:(mo,be)=>`в период ${mo} ваша очередь: ${be}. Спасибо!`,schaden:(d,s)=>`коротко о вашей заявке (${d}): ${s}. С уважением`,zaehler:(a,nr,dt,sd,vb)=>`показание счётчика ${a}${nr?` (№ ${nr})`:""} на ${dt}: ${sd}${vb!=null?`. Расход с прошлого показания: ${vb}`:""}. С уважением`,kosten:(d,b)=>`устранение повреждения, причинённого вами (${d}), стоило ${b}. Пожалуйста, переведите эту сумму. Расчёт с чеками я вам отправлю. Спасибо!`},
 es:{hi:n=>`Hola ${n}`,v1:a=>`hemos detectado una infracción del reglamento de la comunidad: ${a}. Por favor, téngalo en cuenta en adelante. ¡Gracias!`,v2:a=>`lamentablemente ha habido otra infracción del reglamento: ${a}. Por favor, respete el reglamento. ¡Gracias!`,v3:a=>`a pesar de los avisos anteriores, se han repetido las infracciones del reglamento (${a}). Recibirá una amonestación por escrito por correo.`,miete:(mo,b)=>`de ${mo} todavía quedan pendientes ${b}. Por favor, transfiera el importe lo antes posible. ¡Gracias!`,kw:(mo,be)=>`en ${mo} le toca: ${be}. ¡Gracias!`,schaden:(d,s)=>`novedades sobre su aviso (${d}): ${s}. Un saludo`,zaehler:(a,nr,dt,sd,vb)=>`su lectura de contador ${a}${nr?` (n.º ${nr})`:""} del ${dt}: ${sd}${vb!=null?`. Consumo desde la última lectura: ${vb}`:""}. Un saludo`,kosten:(d,b)=>`la reparación del daño que usted causó (${d}) ha costado ${b}. Por favor, transfiera el importe. Le enviaré el detalle de costes con los recibos. ¡Gracias!`},
 fr:{hi:n=>`Bonjour ${n}`,v1:a=>`nous avons constaté une infraction au règlement intérieur : ${a}. Merci d'y faire attention à l'avenir.`,v2:a=>`malheureusement, le règlement intérieur n'a de nouveau pas été respecté : ${a}. Merci de le respecter.`,v3:a=>`malgré les avertissements précédents, le règlement intérieur n'a pas été respecté à plusieurs reprises (${a}). Vous recevrez une mise en demeure écrite par courrier.`,miete:(mo,b)=>`pour ${mo}, un montant de ${b} reste impayé. Merci de le virer rapidement.`,kw:(mo,be)=>`en ${mo}, c'est votre tour : ${be}. Merci !`,schaden:(d,s)=>`point sur votre signalement (${d}) : ${s}. Cordialement`,zaehler:(a,nr,dt,sd,vb)=>`votre relevé de compteur ${a}${nr?` (n° ${nr})`:""} du ${dt} : ${sd}${vb!=null?`. Consommation depuis le dernier relevé : ${vb}`:""}. Cordialement`,kosten:(d,b)=>`la réparation du dommage que vous avez causé (${d}) a coûté ${b}. Merci de virer ce montant. Je vous envoie le décompte avec les justificatifs.`},
-en:{hi:n=>`Hello ${n}`,v1:a=>`we have noticed a breach of the house rules: ${a}. Please pay attention to this in future. Thank you!`,v2:a=>`unfortunately the house rules have been breached again: ${a}. Please follow the house rules. Thank you!`,v3:a=>`despite previous notices the house rules have been breached repeatedly (${a}). You will receive a formal written warning by post.`,miete:(mo,b)=>`an amount of ${b} is still outstanding for ${mo}. Please transfer it soon. Thank you!`,kw:(mo,be)=>`in ${mo} it is your turn for ${be}. Thank you!`,schaden:(d,s)=>`a short update on your report (${d}): ${s}. Kind regards`,zaehler:(a,nr,dt,sd,vb)=>`your meter reading ${a}${nr?` (no. ${nr})`:""} on ${dt}: ${sd}${vb!=null?`. Consumption since the last reading: ${vb}`:""}. Kind regards`,kosten:(d,b)=>`repairing the damage you caused (${d}) has cost ${b}. Please transfer the amount. I will send you the cost statement with receipts. Thank you!`},};
+en:{hi:n=>`Hello ${n}`,v1:a=>`we have noticed a breach of the house rules: ${a}. Please pay attention to this in future. Thank you!`,v2:a=>`unfortunately the house rules have been breached again: ${a}. Please follow the house rules. Thank you!`,v3:a=>`despite previous notices the house rules have been breached repeatedly (${a}). You will receive a formal written warning by post.`,miete:(mo,b)=>`an amount of ${b} is still outstanding for ${mo}. Please transfer it soon. Thank you!`,kw:(mo,be)=>`in ${mo} it is your turn for ${be}. Thank you!`,schaden:(d,s)=>`a short update on your report (${d}): ${s}. Kind regards`,zaehler:(a,nr,dt,sd,vb)=>`your meter reading ${a}${nr?` (no. ${nr})`:""} on ${dt}: ${sd}${vb!=null?`. Consumption since the last reading: ${vb}`:""}. Kind regards`,kosten:(d,b)=>`repairing the damage you caused (${d}) has cost ${b}. Please transfer the amount. I will send you the cost statement with receipts. Thank you!`},hi:{hi:n=>`नमस्ते ${n}`,v1:a=>`हमने भवन नियमों का उल्लंघन देखा है: ${a}। कृपया आगे से इसका ध्यान रखें। धन्यवाद!`,v2:a=>`दुर्भाग्य से भवन नियमों का फिर से उल्लंघन हुआ है: ${a}। कृपया भवन नियमों का पालन करें। धन्यवाद!`,v3:a=>`पिछली सूचनाओं के बावजूद भवन नियमों का बार-बार उल्लंघन हुआ है (${a})। इसके लिए आपको डाक से लिखित औपचारिक चेतावनी मिलेगी।`,miete:(mo,b)=>`${mo} के लिए अभी ${b} की राशि बकाया है। कृपया इसे जल्द ट्रांसफ़र करें। धन्यवाद!`,kw:(mo,be)=>`${mo} में ${be} के लिए आपकी बारी है। धन्यवाद!`,schaden:(d,s)=>`आपकी रिपोर्ट (${d}) पर संक्षिप्त जानकारी: ${s}। शुभकामनाएँ`,zaehler:(a,nr,dt,sd,vb)=>`${dt} को आपकी मीटर रीडिंग ${a}${nr?` (नं. ${nr})`:""}: ${sd}${vb!=null?`। पिछली रीडिंग से खपत: ${vb}`:""}। शुभकामनाएँ`,kosten:(d,b)=>`आपके द्वारा हुए नुकसान (${d}) की मरम्मत में ${b} खर्च हुए हैं। कृपया यह राशि ट्रांसफ़र करें। रसीदों के साथ लागत विवरण मैं आपको भेज दूँगा। धन्यवाद!`},};
 const mL = m => (m&&MSG[m.sprache])?m.sprache:"de";
 function tmsg(m,key,...a){ const T=MSG[mL(m)]; const hi=T.hi(m?.name||""); return key==="chat"?`${hi}, `:`${hi}, ${T[key](...a)}`; }
 
@@ -857,7 +859,8 @@ function spdSpeech(){
    ru:[`Тест скорости завершён, ${net}. Загрузка ${d} мегабит в секунду`,u!=null?`, отдача ${u} мегабит`:"",p!=null?`, пинг ${p} миллисекунд`:"",". ",["Очень быстрый интернет.","Хорошо для видео и звонков.","Достаточно для сайтов и почты.","Медленно – проверь роутер или подключение."][v]],
    es:[`Prueba de velocidad terminada por ${net}. Descarga ${d} megabits por segundo`,u!=null?`, subida ${u} megabits`:"",p!=null?`, ping ${p} milisegundos`:"",". ",["Internet muy rápido.","Bueno para streaming y videollamadas.","Suficiente para navegar y correo.","Lento: revisa el router o la conexión."][v]],
    fr:[`Test de débit terminé via ${net}. Téléchargement ${d} mégabits par seconde`,u!=null?`, envoi ${u} mégabits`:"",p!=null?`, ping ${p} millisecondes`:"",". ",["Internet très rapide.","Bon pour le streaming et les appels vidéo.","Suffisant pour surfer et les e-mails.","Lent – vérifie la box ou la connexion."][v]],
-   en:[`Speed test finished over ${net}. Download ${d} megabits per second`,u!=null?`, upload ${u} megabits`:"",p!=null?`, ping ${p} milliseconds`:"",". ",["Very fast internet.","Good for streaming and video calls.","Enough for browsing and email.","Slow – please check the router or connection."][v]]
+   en:[`Speed test finished over ${net}. Download ${d} megabits per second`,u!=null?`, upload ${u} megabits`:"",p!=null?`, ping ${p} milliseconds`:"",". ",["Very fast internet.","Good for streaming and video calls.","Enough for browsing and email.","Slow – please check the router or connection."][v]],
+   hi:[`${net} से स्पीड टेस्ट पूरा हुआ। डाउनलोड ${d} मेगाबिट प्रति सेकंड`,u!=null?`, अपलोड ${u} मेगाबिट`:"",p!=null?`, पिंग ${p} मिलीसेकंड`:"","। ",["बहुत तेज़ इंटरनेट।","स्ट्रीमिंग और वीडियो कॉल के लिए अच्छा।","ब्राउज़िंग और ईमेल के लिए पर्याप्त।","धीमा – कृपया राउटर या कनेक्शन जाँचें।"][v]]
   };
   return (T[L]||T.de).join("");
 }
@@ -3203,6 +3206,7 @@ function vStart(){
   { const nh=tickets().filter(t=>hwNeed(t.col,t.d)?.state==="need"&&inMyObj(wohn(t.d.wohnungId)?.objektId)); if(nh.length) att.push({c:"warn",t:`${nh.length} Ticket${nh.length>1?"s brauchen":" braucht"} einen Handwerker`,s:nh.slice(0,3).map(t=>`${tNr(t.d)} ${String(tTitle(t.col,t.d)).slice(0,40)}`).join(" · "),a:`<button class="btn sm" data-act="go" data-tab="hw">Ansehen</button>`}); }
   list("auftraege").filter(a=>!isAnw(a)&&["Fertig gemeldet","Problem"].includes(a.status)).forEach(a=>att.push({c:a.status==="Problem"?"bad":"warn",t:a.status==="Problem"?`${a.hwName} kann nicht erledigen`:`${a.hwName} meldet: erledigt`,s:`A-${a.nr} ${a.titel}${a.status==="Problem"&&a.hwProblem?" – "+a.hwProblem:""}`,a:`<button class="btn sm" data-act="awOpen" data-id="${esc(a.id)}">${a.status==="Problem"?"Ansehen":"Prüfen"}</button>`}));
   fdList().forEach(({m,i})=>{ if(i.next==="anwalt") att.push({c:"bad",t:"Anwalt einschalten",s:`${m.name} · ${eur(i.offen)} offen · 2 Mahnungen erfolglos`,a:`<button class="btn sm" data-act="anwNew" data-m="${esc(m.id)}">Anwalt beauftragen</button>`}); else if(i.next==="mahnung2"&&i.fristUm) att.push({c:"bad",t:"Frist der 1. Mahnung abgelaufen",s:`${m.name} · ${eur(i.offen)} offen`,a:`<button class="btn sm" data-act="mhNew" data-m="${esc(m.id)}">2. Mahnung</button>`}); else if(i.next==="senden") att.push({c:"warn",t:"Mahnung noch nicht versendet",s:`${m.name} · ${eur(i.offen)}`,a:`<button class="btn sm" data-act="mhOpen" data-id="${esc(i.last.id)}">Senden</button>`}); });
+  try{ insAttention(att); }catch(e){ console.warn(e); }
   { const fa=finAtt(y).filter(x=>x.c==="bad"); if(fa.length) att.push({c:"bad",t:fa[0].t,s:fa[0].s,a:`<button class="btn sm" data-act="go" data-tab="geld" data-sub="hub">Finanzen öffnen</button>`}); }
   const noTel=ms.filter(m=>!m.telefon).length;
   if(noTel) att.push({c:"neutral",t:`${noTel} Mieter ohne Telefonnummer`,s:"Ohne Nummer funktionieren die WhatsApp-Knöpfe nicht.",a:`<button class="btn sm" data-act="go" data-tab="haeuser" data-sub="mieter">Mieter öffnen</button>`});
@@ -3274,10 +3278,10 @@ function objUebersicht(o){
   const rows=ws.map(w=>{ const m=mieterOf(w.id), sc=m?scoreOf(m):null, zl=zLast(w.id);
     const zt=Object.keys(ZKAT).map(k=>zl[k]?`<span class="zchip">${ZKAT[k].ic}${esc(fmtM(Number(zl[k].stand)))} ${esc(ZKAT[k].einheit)}<small>${esc(fmtDate(zl[k].datum))}</small></span>`:"").join("");
     return `<div class="orow"><div class="o-et"><b>${esc(w.lage||w.id)}</b><small>${w.flaeche?`${esc(w.flaeche)} m²`:""}${w.zimmer?` · ${esc(w.zimmer)} Zi.`:""}</small></div>
-     <div class="o-m">${m?`<button class="back" data-act="openMieter" data-id="${esc(m.id)}" style="color:var(--ink);font-size:14.5px;font-weight:600">${esc(m.name)}</button><small>${sollOf(w.id)?esc(eur(sollOf(w.id)))+"/Monat":""}${m.telefon?"":" · keine Nummer"}</small>`:`<span class="small">frei</span><button class="btn sm ghost" data-act="new" data-col="mieter" data-pre-wohnung-id="${esc(w.id)}">Mieter anlegen</button>`}</div>
+     <div class="o-m">${m?`<button class="back" data-act="openMieter" data-id="${esc(m.id)}" style="color:var(--ink);font-size:14.5px;font-weight:600">${esc(m.name)}</button><small>${sollOf(w.id)?esc(eur(sollOf(w.id)))+"/Monat":""}${m.telefon?"":" · keine Nummer"}</small>`:`<span class="small">frei</span><button class="btn sm pri" data-act="insOpen" data-w="${esc(w.id)}">Neu vermieten</button>`}${m&&kuendOfW(w.id)?`<button class="btn sm pri" data-act="insOpen" data-w="${esc(w.id)}">Wird frei · Neu vermieten</button>`:""}</div>
      <div class="o-s">${sc?`<button class="sc-mini ${sc.score<60?"low":""}" data-act="openMieter" data-id="${esc(m.id)}" aria-label="Score ${sc.score}"><b>${sc.score}</b><small>${scoreLevel(sc.score)[0]}</small></button>`:""}</div>
      ${zt?`<div class="o-z">${zt}</div>`:`<div class="o-z"><span class="small">Noch keine Zählerstände</span></div>`}</div>`; }).join("");
-  const F=[["Kosten hochladen","fixScan","",IC.beleg],["Mieter & Verträge","osubGo","mieter",IC.vertrag],["Tickets","osubGo","tickets",IC.schaden],["Zählerstand","scanZaehler","",IC.zaehler],["Fotos & Videos","osubGo","medien",IC.brett],["Inventar","osubGo","inventar",IC.haus],["Protokolle","osubGo","protokolle",IC.vertrag],["Steuerberater","stb","",IC.beleg]];
+  const F=[["Kosten hochladen","fixScan","",IC.beleg],["Mieter & Verträge","osubGo","mieter",IC.vertrag],["Tickets","osubGo","tickets",IC.schaden],["Zählerstand","scanZaehler","",IC.zaehler],["Fotos & Videos","osubGo","medien",IC.brett],["Dokumente","osubGo","dokumente",IC.vertrag],["Protokolle","osubGo","protokolle",IC.vertrag],["Steuerberater","stb","",IC.beleg]];
   const cf=cashflow(o.id);
   return `<div class="objx" data-act="noop"><button class="cfstrip" data-act="osubGo" data-id="${esc(o.id)}" data-v="uebersicht"><span class="sc-mini ${cf.score<50?"low":""}"><b>${cf.score}</b><small>CF</small></span><span style="flex:1;text-align:start"><b>Cashflow ${cf.plus>=0?"+":"−"}${esc(eur(Math.abs(cf.plus)))} / Monat</b><small>${esc(cf.lvl)} · Einnahmen ${esc(eur(cf.soll))} · Kosten ${esc(eur(cf.kosten))}</small></span><span class="chev">›</span></button>${ws.length?`<div class="ohead"><span>Etage</span><span>Mieter</span><span>Bewertung</span></div>${rows}`:`<div class="small">Noch keine Wohnungen. <button class="btn sm" data-act="new" data-col="wohnungen" data-pre-objekt-id="${esc(o.id)}">Wohnung anlegen</button></div>`}
    <div class="ofun">${F.map(([l,a,v,ic])=>`<button data-act="${a}" data-id="${esc(o.id)}" data-o="${esc(o.id)}"${v?` data-v="${v}"`:""}>${ic}<span>${esc(l)}</span></button>`).join("")}</div></div>`;
@@ -3287,7 +3291,7 @@ function wohnungItem(w){
   return `<div class="item"><div class="head" style="align-items:center"><span class="tile">${IC.haus}</span><div style="flex:1;min-width:0"><b>${esc(w.lage||w.id)}</b><div class="meta num">${esc(w.id)}${w.flaeche?` · ${w.flaeche} m²`:""}${w.zimmer?` · ${w.zimmer} Zi.`:""} · ${w.kalt!=null?`${eur(w.kalt)} + ${eur(w.nk)} NK${w.extra?` + ${eur(w.extra)}`:""}`:"Miete fehlt"}</div></div><span class="pill ${w.status==="Vermietet"?"ok":(w.status==="Leer"?"warn":"neutral")}">${esc(w.status||"")}</span></div>
   ${w.notiz?`<div class="small">${esc(w.notiz)}</div>`:""}
   <div>${ms.length?ms.map(mieterCard).join(""):`<div class="row"><span class="small">Kein Mieter</span><button class="btn sm" data-act="scanVertrag" data-w="${esc(w.id)}">Vertrag scannen</button><button class="btn sm" data-act="new" data-col="mieter" data-pre-wohnung-id="${esc(w.id)}">Mieter anlegen</button></div>`}</div>
-  <div class="row"><button class="btn sm ghost" data-act="edit" data-col="wohnungen" data-id="${esc(w.id)}">Bearbeiten</button><button class="btn sm ghost" data-act="protNew" data-w="${esc(w.id)}" data-art="Übergabe (Einzug)">Übergabeprotokoll</button></div></div>`;
+  <div class="row"><button class="btn sm ghost" data-act="edit" data-col="wohnungen" data-id="${esc(w.id)}">Bearbeiten</button><button class="btn sm ghost" data-act="protNew" data-w="${esc(w.id)}" data-art="Übergabe (Einzug)">Übergabeprotokoll</button>${(()=>{ const i=insOf(w.id); return i&&i.status!=="Vermietet"?`<button class="btn sm pri" data-act="insOpen" data-w="${esc(w.id)}">Neuvermietung · ${esc(i.status)}</button>`:wFrei(w)?`<button class="btn sm pri" data-act="insOpen" data-w="${esc(w.id)}">Neu vermieten</button>`:`<button class="btn sm ghost" data-act="insOpen" data-w="${esc(w.id)}">Neu vermieten</button>`; })()}</div></div>`;
 }
 function vObjekt(oid){
   const o=st.data.objekte[oid]; if(!o){ st.objekt=null; return vHaeuser(); }
@@ -3296,7 +3300,7 @@ function vObjekt(oid){
   const tk=objTickets(oid), open=tk.filter(t=>t.s!=="Erledigt").length;
   const med=list("medien").filter(x=>x.objektId===oid), prot=list("protokolle").filter(p=>p.objektId===oid);
   const cov=coverOf(oid), sub=st.osub||"uebersicht";
-  const tabs=`<div class="seg" role="group">${[["uebersicht","Übersicht"],["mieter","Mieter & Verträge"],["tickets",`Tickets (${open})`],["medien",`Fotos & Videos (${med.length})`],["inventar",`Inventar (${list("inventar").filter(x=>x.objektId===oid).length})`],["protokolle",`Protokolle (${prot.length})`]].map(([v,l])=>`<button data-act="osub" data-v="${v}" aria-pressed="${sub===v}">${esc(l)}</button>`).join("")}</div>`;
+  const tabs=`<div class="seg" role="group">${[["uebersicht","Übersicht"],["mieter","Mieter & Verträge"],["tickets",`Tickets (${open})`],["medien",`Fotos & Videos (${med.length})`],["dokumente",`Dokumente (${dokAll(oid).length})`],["inventar",`Inventar (${list("inventar").filter(x=>x.objektId===oid).length})`],["protokolle",`Protokolle (${prot.length})`]].map(([v,l])=>`<button data-act="osub" data-v="${v}" aria-pressed="${sub===v}">${esc(l)}</button>`).join("")}</div>`;
   let body="";
   if(sub==="mieter"){
     body=`<div class="row"><button class="btn pri" data-act="scanVertrag">Vertrag scannen</button><button class="btn" data-act="new" data-col="mieter">Mieter anlegen</button></div>
@@ -3309,6 +3313,8 @@ function vObjekt(oid){
     const PH=["Vor Vermietung","Einzug","Auszug","Sonstiges"];
     body=`<div class="row"><button class="btn pri" data-act="medienAdd" data-o="${esc(oid)}">Fotos & Videos hinzufügen</button></div>
     ${med.length?PH.map(ph=>{const xs=med.filter(x=>(x.phase||"Sonstiges")===ph).sort((a,b)=>String(b.datum).localeCompare(String(a.datum)));return xs.length?`<section class="list"><div class="sec-title"><h3>${esc(ph)}</h3><span>${xs.length}</span></div><div class="gallery">${xs.map(x=>`<div class="g" data-act="medienOpen" data-id="${esc(x.id)}" role="button" tabindex="0">${x.typ==="video"?`<video src="${esc(assetUrl(x.asset))}" muted preload="metadata"></video><span class="play">▶</span>`:`<img src="${esc(assetUrl(x.asset))}" alt="${esc(x.titel||"Foto")}" loading="lazy">`}<span class="cap">${esc(x.wohnungId?(wohn(x.wohnungId)?.lage||x.wohnungId):"Haus")}${x.titel?` · ${esc(x.titel)}`:""}</span></div>`).join("")}</div></section>`:"";}).join(""):emptyBox("Noch keine Fotos oder Videos. Dokumentiere den Zustand vor der Vermietung, beim Einzug und beim Auszug.")}`;
+  } else if(sub==="dokumente"){
+    body=vDokumente(oid);
   } else if(sub==="inventar"){
     body=vInventar(oid);
   } else if(sub==="protokolle"){
@@ -3323,7 +3329,7 @@ function vObjekt(oid){
   const verm=ws.filter(w=>mieterOf(w.id)).length, soll=ws.reduce((x,w)=>x+sollOf(w.id),0);
   return `<button class="back" data-act="backObj">‹ Alle Objekte</button>
   <div class="hero${cov?" img":""}"${cov?` style="background-image:url('${esc(cov)}')"`:""}>
-    <div class="spread"><span class="row" style="gap:6px"><span class="pill neutral" style="background:rgba(12,16,15,.6)">${esc(o.id)}</span>${o.garten?`<button class="pill pbtn" data-act="objInfo" data-id="${esc(oid)}" data-k="garten">Garten ›</button>`:""}</span><span class="row" style="gap:6px"><button class="btn sm" data-act="finHaus" data-o="${esc(oid)}">Finanzen</button><button class="btn sm" data-act="osub" data-v="inventar">Inventar</button><button class="btn sm" data-act="edit" data-col="objekte" data-id="${esc(oid)}">Bearbeiten</button></span></div>
+    <div class="spread"><span class="row" style="gap:6px"><span class="pill neutral" style="background:rgba(12,16,15,.6)">${esc(o.id)}</span>${o.garten?`<button class="pill pbtn" data-act="objInfo" data-id="${esc(oid)}" data-k="garten">Garten ›</button>`:""}</span><span class="row" style="gap:6px"><button class="btn sm" data-act="finHaus" data-o="${esc(oid)}">Finanzen</button><button class="btn sm" data-act="osub" data-v="dokumente">Dokumente</button><button class="btn sm" data-act="osub" data-v="inventar">Inventar</button><button class="btn sm" data-act="edit" data-col="objekte" data-id="${esc(oid)}">Bearbeiten</button></span></div>
     <div class="big">${esc(o.name)}</div><div class="small">${esc(o.adresse||"Adresse fehlt")}</div>
     <div class="stats"><div class="tap" data-act="objInfo" data-id="${esc(oid)}" data-k="mieter" role="button" tabindex="0" style="cursor:pointer"><b>${verm}/${ws.length}</b><span>vermietet ›</span></div><div><b class="num">${eur(soll)}</b><span>Soll pro Monat</span></div><div class="tap" data-act="objInfo" data-id="${esc(oid)}" data-k="tickets" role="button" tabindex="0" style="cursor:pointer"><b style="color:${open?"var(--bad)":"var(--ink)"}">${open}</b><span>offene Tickets ›</span></div><div class="tap" data-act="objInfo" data-id="${esc(oid)}" data-k="mieter" role="button" tabindex="0" style="cursor:pointer"><b>${ms.filter(m=>m.aktiv!==false).length}</b><span>Mieter ›</span></div></div>
   </div>
@@ -4324,6 +4330,8 @@ const S_FN=[
  ["Kehrwoche","Putzplan","kehrwoche putzplan reinigung treppenhaus",()=>goView("gemein","kehrwoche")],
  ["Garten","Reservierungen","garten reservierung grillen",()=>goView("gemein","garten")],
  ["Schwarzes Brett","Aushänge an Mieter","schwarzes brett aushang info mitteilung",()=>goView("gemein","brett")],
+ ["Neuvermietung","Wohnung frei: Zeitplan, Video-Rundgang, Anzeige, Kleinanzeigen, Exposé, Interessenten","neuvermietung neu vermieten frei leer anzeige inserat kleinanzeigen ebay expose rundgang video besichtigung interessent nachmieter",()=>{ const w=list("wohnungen").filter(w=>inMyObj(w.objektId)).find(w=>insOf(w.id)&&insOf(w.id).status!=="Vermietet")||list("wohnungen").filter(w=>inMyObj(w.objektId)).find(wFrei); if(w) openInserat(w.id); else { goView("haeuser"); toast("Wohnung wählen › Neu vermieten"); } }],
+ ["Dokumente","Ordner pro Haus: Energieausweis, Verträge, Versicherung, Grundsteuer …","dokumente dokument ordner energieausweis energie versicherung grundsteuer grundbuch wartung grundriss unterlagen",()=>{ const o=st.objekt||list("objekte").filter(o=>inMyObj(o.id))[0]?.id; if(o) ACT.osubGo({id:o,v:"dokumente"}); }],
  ["Übergabeprotokoll","Einzug / Auszug mit Zählern und Fotos","protokoll uebergabe einzug auszug ruecknahme",()=>ACT.protNew({})],
  ["Speedtest","Internet messen","speedtest internet wlan geschwindigkeit",()=>ACT.speedDetails()],
  ["KI-Assistent","Frage stellen","ki assistent frage hilfe claude",()=>ACT.chat()],
@@ -4452,6 +4460,500 @@ function openMedien(id){
   ${x.typ==="video"?`<video src="${esc(u)}" controls playsinline style="width:100%;border-radius:14px;background:#000"></video>`:`<img src="${esc(u)}" alt="${esc(x.titel||"Foto")}" style="width:100%;border-radius:14px">`}
   <div class="row"><a class="btn sm" href="${esc(u)}" target="_blank" rel="noopener">In voller Größe öffnen</a>${x.typ==="foto"?`<button class="btn sm" data-act="medienCover" data-id="${esc(id)}">Als Titelbild</button>`:""}<button class="btn sm danger" data-act="medienDel" data-id="${esc(id)}">Löschen</button></div>`);
 }
+
+/* ---------- Haus-Dokumente (Ordner pro Haus) ---------- */
+const DOK_KAT=["Energieausweis","Kaufvertrag & Grundbuch","Finanzierung & Kredit","Mietverträge & Protokolle","Versicherungen","Grundsteuer & Behörden","Wartung & Prüfungen","Pläne & Grundrisse","Teilungserklärung & WEG","Rechnungen & Garantien","Sonstiges"];
+const newId=p=>p+"-"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function fixKat(k){ k=String(k||"").toLowerCase(); if(k.includes("versicher")) return "Versicherungen"; if(k.includes("grundsteuer")||k.includes("müll")||k.includes("abwasser")||k.includes("gebühr")) return "Grundsteuer & Behörden"; if(k.includes("kredit")||k.includes("darlehen")||k.includes("bank")) return "Finanzierung & Kredit"; if(k.includes("wartung")||k.includes("schornstein")||k.includes("heizung")) return "Wartung & Prüfungen"; return "Sonstiges"; }
+/* Dokumente, die schon an anderer Stelle der App liegen – werden im Ordner mit angezeigt */
+function dokAuto(oid){
+  const o=st.data.objekte[oid]||{}, out=[];
+  (o.kauf?.docs||[]).forEach(d=>d.asset&&out.push({kat:"Kaufvertrag & Grundbuch",titel:d.typ||"Kaufvertrag",datum:d.datum||"",asset:d.asset,quelle:"Finanzen › Kaufdaten"}));
+  list("mieter").filter(m=>wohn(m.wohnungId)?.objektId===oid&&m.vertragAsset).forEach(m=>out.push({kat:"Mietverträge & Protokolle",titel:`Mietvertrag ${m.name}`,datum:m.beginn||"",asset:m.vertragAsset,quelle:"Mieter",wohnungId:m.wohnungId}));
+  list("vertraege").filter(v=>(v.objektId===oid||wohn(v.wohnungId)?.objektId===oid)&&v.pdfAsset&&v.status==="Unterschrieben").forEach(v=>out.push({kat:"Mietverträge & Protokolle",titel:v.titel+(st.data.mieter[v.mieterId]?` – ${st.data.mieter[v.mieterId].name}`:""),datum:v.datum||"",asset:v.pdfAsset,quelle:"Verträge",wohnungId:v.wohnungId}));
+  list("protokolle").filter(p=>p.objektId===oid).forEach(p=>out.push({kat:"Mietverträge & Protokolle",titel:`${p.art}${p.mieterName?" – "+p.mieterName:""}`,datum:p.datum||"",act:"protOpen",actId:p.id,quelle:"Protokolle",wohnungId:p.wohnungId}));
+  list("fixkosten").filter(f=>f.objektId===oid&&f.dokAsset).forEach(f=>out.push({kat:fixKat(f.kategorie),titel:`${f.kategorie}${f.anbieter?" – "+f.anbieter:""}`,datum:f.seit||"",asset:f.dokAsset,quelle:"Laufende Kosten"}));
+  return out;
+}
+function dokAll(oid){ return [...list("dokumente").filter(d=>d.objektId===oid).map(d=>({...d,eigen:true})),...dokAuto(oid)]; }
+/* Was fehlt noch? */
+function dokFehlt(oid){
+  const all=dokAll(oid), o=st.data.objekte[oid]||{}, has=k=>all.some(d=>d.kat===k);
+  const ms=list("mieter").filter(m=>wohn(m.wohnungId)?.objektId===oid&&m.aktiv!==false);
+  const R=[];
+  R.push({k:"Energieausweis",ok:has("Energieausweis")||!!o.energie?.kennwert,s:o.energie?.kennwert?energieKurz(o.energie):"Pflicht für jede Wohnungsanzeige (§ 87 GEG)"});
+  if(o.energie?.gueltigBis&&o.energie.gueltigBis<today()) R.push({k:"Energieausweis",ok:false,s:`Abgelaufen am ${fmtDate(o.energie.gueltigBis)} – neuen Ausweis besorgen`});
+  R.push({k:"Kaufvertrag & Grundbuch",ok:has("Kaufvertrag & Grundbuch"),s:"Kaufvertrag, Grundbuchauszug"});
+  R.push({k:"Versicherungen",ok:has("Versicherungen"),s:"Gebäudeversicherung, Haftpflicht"});
+  R.push({k:"Grundsteuer & Behörden",ok:has("Grundsteuer & Behörden"),s:"Grundsteuerbescheid, Abgabenbescheid"});
+  R.push({k:"Wartung & Prüfungen",ok:has("Wartung & Prüfungen"),s:"Schornsteinfeger, Heizungswartung, Rauchmelder"});
+  R.push({k:"Pläne & Grundrisse",ok:has("Pläne & Grundrisse"),s:"Grundrisse – helfen auch bei der Anzeige"});
+  const ohne=ms.filter(m=>!m.vertragAsset&&!list("vertraege").some(v=>v.mieterId===m.id&&v.tpl==="miet"&&v.pdfAsset));
+  R.push({k:"Mietverträge & Protokolle",ok:!ohne.length,s:ohne.length?`Mietvertrag fehlt: ${ohne.map(m=>m.name).join(", ")}`:"Alle Mietverträge vorhanden"});
+  return R;
+}
+function energieKurz(e){ if(!e) return ""; return [e.art,e.kennwert?`${String(e.kennwert).replace(".",",")} kWh/(m²·a)`:"",e.traeger,e.klasse?`Klasse ${e.klasse}`:""].filter(Boolean).join(" · "); }
+function energieText(e,o){ if(!e||!e.kennwert) return ""; return `Energieausweis: ${e.art||"Energieausweis"}, ${e.art==="Bedarfsausweis"?"Endenergiebedarf":"Endenergieverbrauch"} ${String(e.kennwert).replace(".",",")} kWh/(m²·a)${e.traeger?`, wesentlicher Energieträger ${e.traeger}`:""}${e.baujahr?`, Baujahr ${e.baujahr}`:""}${e.klasse?`, Energieeffizienzklasse ${e.klasse}`:""}.`; }
+function vDokumente(oid){
+  const all=dokAll(oid), fe=dokFehlt(oid), miss=fe.filter(x=>!x.ok), o=st.data.objekte[oid]||{};
+  const item=d=>`<div class="item tap" ${d.eigen?`data-act="dokOpen" data-id="${esc(d.id)}"`:d.act?`data-act="${d.act}" data-id="${esc(d.actId)}"`:`data-act="dokLink" data-u="${esc(assetUrl(d.asset))}"`} role="button" tabindex="0"><div class="head" style="align-items:center"><span class="tile">${IC.vertrag}</span><div style="flex:1;min-width:0"><b>${esc(d.titel||d.kat)}</b><div class="meta">${[d.datum?fmtDate(d.datum):"",d.wohnungId?(wohn(d.wohnungId)?.lage||d.wohnungId):"",d.gueltigBis?`gültig bis ${fmtDate(d.gueltigBis)}`:"",d.eigen?"":`aus ${d.quelle}`].filter(Boolean).map(esc).join(" · ")}</div></div><span class="pill neutral">${d.act?"Öffnen":"PDF"}</span></div></div>`;
+  return `<div class="row"><button class="btn pri" data-act="dokAdd" data-o="${esc(oid)}">${CAMSVG}<span>Dokument scannen / hochladen</span></button>${o.energie?.kennwert?"":`<button class="btn" data-act="dokAdd" data-o="${esc(oid)}" data-k="Energieausweis">Energieausweis hinzufügen</button>`}</div>
+  <section class="list"><div class="sec-title"><h3>Was noch fehlt</h3><span>${miss.length?miss.length+" offen":"alles da"}</span></div>
+  ${fe.map(x=>`<div class="item s-${x.ok?"ok":"warn"}"><div class="head" style="align-items:center"><div style="flex:1;min-width:0"><b>${x.ok?"✓":"○"} ${esc(x.k)}</b><div class="meta">${esc(x.s)}</div></div>${x.ok?(x.k==="Energieausweis"&&o.energie?`<button class="btn sm ghost" data-act="energieEdit" data-o="${esc(oid)}">Werte</button>`:""):`<button class="btn sm" data-act="dokAdd" data-o="${esc(oid)}" data-k="${esc(x.k)}">Hinzufügen</button>`}</div></div>`).join("")}</section>
+  ${DOK_KAT.map(k=>{ const xs=all.filter(d=>d.kat===k).sort((a,b)=>String(b.datum||"").localeCompare(String(a.datum||""))); return xs.length?`<section class="list"><div class="sec-title"><h3>📁 ${esc(k)}</h3><span>${xs.length}</span></div>${k==="Energieausweis"&&o.energie?.kennwert?`<div class="small">${esc(energieKurz(o.energie))}${o.energie.gueltigBis?` · gültig bis ${esc(fmtDate(o.energie.gueltigBis))}`:""}</div>`:""}${xs.map(item).join("")}</section>`:""; }).join("")}
+  ${all.length?"":emptyBox("Noch keine Dokumente. Fotografiere Energieausweis, Versicherung, Grundsteuerbescheid usw. – die KI sortiert sie automatisch in den richtigen Ordner.")}
+  <div class="small">Mietverträge, Kaufvertrag, Protokolle und Belege der laufenden Kosten erscheinen hier automatisch. Kassenbons und Handwerker-Rechnungen bleiben unter Geld › Ausgaben.</div>`;
+}
+const DOK_PROMPT=`Das Dokument gehört zu einem vermieteten Mehrfamilienhaus in Deutschland. Ordne es ein und lies die wichtigsten Daten aus. Antworte nur mit JSON:
+{"kategorie":"${DOK_KAT.join("|")}","titel":"kurzer Titel, z. B. Gebäudeversicherung Provinzial 2026","datum":"YYYY-MM-DD oder leer","gueltigBis":"YYYY-MM-DD oder leer","energie":null oder {"art":"Verbrauchsausweis|Bedarfsausweis","kennwert":Zahl in kWh/(m²·a) (End-Energie),"traeger":"z. B. Erdgas, Heizöl, Fernwärme, Strom","baujahr":Jahr des Gebäudes,"klasse":"A+ bis H","ausgestellt":"YYYY-MM-DD","gueltigBis":"YYYY-MM-DD"}}
+"energie" nur bei einem Energieausweis ausfüllen.`;
+function openDokAdd(oid,kat,pre){
+  const o=st.data.objekte[oid]; if(!o) return;
+  if(!st.assets){ toast("Dateien können hier nicht gespeichert werden"); return; }
+  openSheet(`<div class="spread"><h2>Dokument – ${esc(o.name||oid)}</h2><button class="btn sm ghost" data-act="close">Schließen</button></div>
+  <div class="small">Fotografiere die Seiten (werden gerade gerückt) oder lade eine PDF hoch. Claude erkennt die Art des Dokuments und sortiert es in den passenden Ordner.</div>
+  <div class="row"><button class="btn pri" id="dkCam">${CAMSVG}<span>Seiten fotografieren</span></button><label class="btn" for="dkFile">${GALSVG}<span>PDF / Datei wählen</span></label><input id="dkFile" class="hide" type="file" accept="application/pdf,image/*"></div>
+  <div id="dkBody"></div>`);
+  let blob=null, prev=null;
+  const step2=async()=>{
+    const b=$("#dkBody"); if(!b) return;
+    b.innerHTML=`<div class="note info">Claude liest das Dokument …</div>`;
+    let v={}; if(st.sample&&prev){ const r=await aiJson(DOK_PROMPT,[prev]); v=r.v||{}; }
+    if(kat&&!v.kategorie) v.kategorie=kat;
+    if(!DOK_KAT.includes(v.kategorie)) v.kategorie=kat||"Sonstiges";
+    const ws=list("wohnungen").filter(w=>w.objektId===oid), e=v.energie||{};
+    b.innerHTML=`<div class="fields">
+     <div class="field"><label for="dk_k">Ordner</label><select id="dk_k">${DOK_KAT.map(k=>`<option${k===v.kategorie?" selected":""}>${esc(k)}</option>`).join("")}</select></div>
+     <div class="field"><label for="dk_w">Wohnung</label><select id="dk_w"><option value="">ganzes Haus</option>${ws.map(w=>`<option value="${esc(w.id)}">${esc(w.lage||w.id)}</option>`).join("")}</select></div>
+     <div class="field full"><label for="dk_t">Titel</label><input id="dk_t" type="text" value="${esc(v.titel||"")}"></div>
+     <div class="field"><label for="dk_d">Datum</label><input id="dk_d" type="date" value="${esc(v.datum||"")}"></div>
+     <div class="field"><label for="dk_g">Gültig bis (optional)</label><input id="dk_g" type="date" value="${esc(v.gueltigBis||e.gueltigBis||"")}"></div></div>
+     <div id="dk_e"></div>
+     <div class="row end"><button class="btn" data-act="close">Abbrechen</button><button class="btn pri" id="dk_s">Speichern</button></div>`;
+    const showE=()=>{ $("#dk_e").innerHTML=$("#dk_k").value==="Energieausweis"?energieFields(e):""; }; showE(); $("#dk_k").onchange=showE;
+    $("#dk_s").onclick=async()=>{
+      $("#dk_s").disabled=true; $("#dk_s").textContent="Speichert …";
+      try{
+        const up=await st.assets.upload(blob); const k=$("#dk_k").value;
+        const doc={objektId:oid,wohnungId:$("#dk_w").value,kat:k,titel:$("#dk_t").value.trim()||k,datum:$("#dk_d").value,gueltigBis:$("#dk_g").value,asset:up.id,mime:blob.type||"",erstellt:new Date().toISOString()};
+        if(k==="Energieausweis"){ const en=readEnergie(); doc.energie=en; await st.db.collection("objekte").doc(oid).update({energie:en}); }
+        await st.db.collection("dokumente").doc(newId("dok")).set(doc);
+        closeSheet(); toast(`Gespeichert in „${k}“`);
+      }catch(x){ console.error(x); toast("Speichern fehlgeschlagen"); $("#dk_s").disabled=false; $("#dk_s").textContent="Speichern"; }
+    };
+  };
+  $("#dkCam").onclick=async()=>{ const pages=await scanPages({multi:true,title:"Dokument fotografieren",tip:"Alle Seiten nacheinander fotografieren, dann „Fertig“."}); if(!pages.length) return; openDokAdd(oid,kat,{blob:await imagesToPdf(pages),prev:await compress(pages[0],1600)}); };
+  $("#dkFile").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; if(f.type.startsWith("image/")){ prev=await compress(f,1600); blob=await imagesToPdf([prev]); } else { blob=f; prev=await pdfFirstPage(f); } await step2(); };
+  if(pre){ blob=pre.blob; prev=pre.prev; step2(); }
+}
+function energieFields(e={}){
+  return `<div class="sec-title"><h3>Energieausweis – Pflichtangaben für Anzeigen</h3></div><div class="fields">
+  <div class="field"><label for="en_a">Art</label><select id="en_a">${["Verbrauchsausweis","Bedarfsausweis"].map(x=>`<option${x===e.art?" selected":""}>${x}</option>`).join("")}</select></div>
+  <div class="field"><label for="en_k">Kennwert kWh/(m²·a)</label><input id="en_k" type="number" step="0.1" value="${esc(e.kennwert??"")}"></div>
+  <div class="field"><label for="en_t">Energieträger</label><input id="en_t" type="text" value="${esc(e.traeger||"")}" placeholder="z. B. Erdgas"></div>
+  <div class="field"><label for="en_b">Baujahr Gebäude</label><input id="en_b" type="number" value="${esc(e.baujahr||"")}"></div>
+  <div class="field"><label for="en_c">Effizienzklasse</label><select id="en_c"><option value="">–</option>${["A+","A","B","C","D","E","F","G","H"].map(x=>`<option${x===e.klasse?" selected":""}>${x}</option>`).join("")}</select></div>
+  <div class="field"><label for="en_g">Gültig bis</label><input id="en_g" type="date" value="${esc(e.gueltigBis||"")}"></div></div>`;
+}
+function readEnergie(){ return {art:$("#en_a")?.value||"",kennwert:num($("#en_k")?.value),traeger:$("#en_t")?.value.trim()||"",baujahr:num($("#en_b")?.value),klasse:$("#en_c")?.value||"",gueltigBis:$("#en_g")?.value||""}; }
+function openEnergie(oid){
+  const o=st.data.objekte[oid]; if(!o) return;
+  openSheet(`<div class="spread"><h2>Energieausweis – ${esc(o.name||oid)}</h2><button class="btn sm ghost" data-act="close">Schließen</button></div>${energieFields(o.energie||{})}
+  <div class="small">Diese Werte stehen automatisch in jeder Wohnungsanzeige und im Exposé.</div>
+  <div class="row end"><button class="btn" data-act="close">Abbrechen</button><button class="btn pri" id="en_s">Speichern</button></div>`);
+  $("#en_s").onclick=async()=>{ try{ await st.db.collection("objekte").doc(oid).update({energie:readEnergie()}); closeSheet(); toast("Gespeichert"); }catch(e){ toast("Speichern fehlgeschlagen"); } };
+}
+function openDok(id){
+  const d=st.data.dokumente[id]; if(!d) return; const u=assetUrl(d.asset);
+  openSheet(`<div class="spread"><div><div class="small">📁 ${esc(d.kat)}</div><h2>${esc(d.titel)}</h2></div><button class="btn sm ghost" data-act="close">Schließen</button></div>
+  <div class="small">${[d.datum?`Datum ${fmtDate(d.datum)}`:"",d.gueltigBis?`gültig bis ${fmtDate(d.gueltigBis)}`:"",d.wohnungId?wohnLabel(d.wohnungId):"ganzes Haus"].filter(Boolean).map(esc).join(" · ")}</div>
+  ${d.energie?.kennwert?`<div class="note info">${esc(energieText(d.energie))}</div>`:""}
+  <div class="fields"><div class="field"><label for="do_k">Ordner</label><select id="do_k">${DOK_KAT.map(k=>`<option${k===d.kat?" selected":""}>${esc(k)}</option>`).join("")}</select></div><div class="field"><label for="do_t">Titel</label><input id="do_t" type="text" value="${esc(d.titel||"")}"></div></div>
+  <div class="row"><a class="btn sm pri" href="${esc(u)}" target="_blank" rel="noopener">Öffnen</a><button class="btn sm" id="do_s">Änderung speichern</button>${d.kat==="Energieausweis"?`<button class="btn sm" data-act="energieEdit" data-o="${esc(d.objektId)}">Werte bearbeiten</button>`:""}<button class="btn sm danger" id="do_x">Löschen</button></div>`);
+  $("#do_s").onclick=async()=>{ try{ await st.db.collection("dokumente").doc(id).update({kat:$("#do_k").value,titel:$("#do_t").value.trim()}); closeSheet(); toast("Gespeichert"); }catch(e){ toast("Speichern fehlgeschlagen"); } };
+  $("#do_x").onclick=async()=>{ if(!await ask("Dieses Dokument endgültig löschen?")) return; try{ await st.db.collection("dokumente").doc(id).delete(); if(st.assets&&d.asset) st.assets.delete(d.asset).catch(()=>{}); closeSheet(); toast("Gelöscht"); }catch(e){ toast("Löschen fehlgeschlagen"); } };
+}
+
+/* ---------- Neuvermietung: Zeitplan, Video-Rundgang, Anzeige, Kleinanzeigen, Exposé, Interessenten ---------- */
+const dAdd=(d,n)=>{ const x=new Date(String(d).slice(0,10)+"T12:00:00"); x.setDate(x.getDate()+n); return `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`; };
+const INS_ST=["Neu","Termin","Besichtigt","Selbstauskunft","Zusage","Absage"];
+const RAUM_ORDER=["Wohnzimmer","Küche","Esszimmer","Schlafzimmer","Kinderzimmer","Arbeitszimmer","Bad","Gäste-WC","Flur","Balkon","Terrasse","Garten","Keller","Abstellraum","Treppenhaus","Außen"];
+function kuendOfW(wid){
+  const m=mieterOf(wid); if(!m) return null;
+  const k=list("vertraege").filter(v=>v.mieterId===m.id&&v.tpl==="kuendM"&&v.status==="Unterschrieben"&&!["Stellplatz / Garage","Strom","Internet"].includes(v.felder?.gegenstand)).sort((a,b)=>String(b.datum).localeCompare(String(a.datum)))[0];
+  return k?.felder?.ende?{m,ende:k.felder.ende}:null;
+}
+function insOf(wid){ return st.data.inserate?.["ins-"+wid]||null; }
+function wFrei(w){ return !mieterOf(w.id)||w.status==="Leer"||w.status==="Renovierung"||!!kuendOfW(w.id); }
+function zeitplanAuto(freiAb,bewohnt){
+  const t=today(); let ab=freiAb&&freiAb>t?freiAb:null;
+  const S=[];
+  if(ab&&bewohnt){
+    const L=dAdd(ab,-1);
+    S.push({k:"vorab",t:"Vorabnahme mit dem Mieter (Schäden, Renovierung klären)",d:dAdd(L,-28)});
+    S.push({k:"film",t:"Rundgang filmen & Fotos (nur mit Zustimmung des Mieters)",d:dAdd(L,-45)});
+    S.push({k:"online",t:"Anzeige online: Kleinanzeigen + Exposé-Link",d:dAdd(L,-42)});
+    S.push({k:"besicht",t:"Besichtigungen",d:dAdd(L,-35)});
+    S.push({k:"auswahl",t:"Selbstauskunft einholen & Mieter auswählen",d:dAdd(L,-14)});
+    S.push({k:"vertrag",t:"Neuen Mietvertrag unterschreiben",d:dAdd(L,-10)});
+    S.push({k:"rueck",t:"Rücknahme alter Mieter: Protokoll, Zähler, Schlüssel",d:L});
+    S.push({k:"reno",t:"Renovierung / Handwerker (falls nötig)",d:ab});
+    S.push({k:"einzug",t:"Einzug: Übergabeprotokoll + Wohnungsgeberbestätigung",d:ab});
+  } else {
+    const s=ab&&ab>dAdd(t,3)?dAdd(ab,-30)>t?dAdd(ab,-30):t:t, e=ab||dAdd(t,30);
+    S.push({k:"film",t:"Rundgang filmen & Fotos",d:s});
+    S.push({k:"online",t:"Anzeige online: Kleinanzeigen + Exposé-Link",d:dAdd(s,1)});
+    S.push({k:"besicht",t:"Besichtigungen",d:dAdd(s,5)});
+    S.push({k:"auswahl",t:"Selbstauskunft einholen & Mieter auswählen",d:dAdd(s,14)});
+    S.push({k:"vertrag",t:"Neuen Mietvertrag unterschreiben",d:dAdd(s,18)});
+    S.push({k:"einzug",t:"Einzug: Übergabeprotokoll + Wohnungsgeberbestätigung",d:e>dAdd(s,20)?e:dAdd(s,30)});
+  }
+  return S.sort((a,b)=>a.d.localeCompare(b.d)).map(x=>({...x,done:false}));
+}
+function insNeu(wid){
+  const w=wohn(wid), kd=kuendOfW(wid), m=mieterOf(wid);
+  const freiAb=kd?dAdd(kd.ende,1):(m?"":today());
+  return {id:"ins-"+wid,wohnungId:wid,objektId:w.objektId,status:"Vorbereitung",freiAb,bewohnt:!!m,mieterZust:false,
+    zeitplan:zeitplanAuto(freiAb,!!m),kalt:w.kalt??null,nk:w.nk??null,heizInNk:true,kaution:w.kalt?Math.round(w.kalt*3):null,tiere:"nach Absprache",
+    flaeche:w.flaeche??null,zimmer:w.zimmer??null,etage:w.lage||"",titel:"",text:"",ausstattung:[],fotos:[],video:null,slots:[],leute:[],
+    vergleich:null,bremse:false,erstellt:new Date().toISOString()};
+}
+async function insSave(x,msg){ try{ x.geaendert=new Date().toISOString(); await st.db.collection("inserate").doc(x.id).set(JSON.parse(JSON.stringify(x))); st.data.inserate[x.id]={...x}; if(msg) toast(msg); return true; }catch(e){ console.error(e); toast("Speichern fehlgeschlagen"); return false; } }
+let INS=null;
+function openInserat(wid,tab){
+  const w=wohn(wid); if(!w) return;
+  INS=JSON.parse(JSON.stringify(insOf(wid)||insNeu(wid))); INS._tab=tab||INS._tab||"plan";
+  insRender();
+}
+function insRender(){
+  const x=INS, w=wohn(x.wohnungId), o=st.data.objekte[x.objektId]||{}, tab=x._tab;
+  const T=[["plan","Zeitplan"],["rund","Rundgang & Fotos"],["anz","Anzeige & Miete"],["pub","Veröffentlichen"],["leute",`Interessenten (${(x.leute||[]).length})`]];
+  let body="";
+  if(tab==="rund") body=insRund(x); else if(tab==="anz") body=insAnz(x,w,o); else if(tab==="pub") body=insPub(x,w,o); else if(tab==="leute") body=insLeute(x); else body=insPlan(x);
+  openSheet(`<div class="spread"><div><div class="small">${esc(objName(x.objektId))} · ${esc(w.lage||w.id)}</div><h2>Neuvermietung</h2></div><button class="btn sm ghost" data-act="close">Schließen</button></div>
+  <div class="row small"><span class="pill ${x.status==="Online"?"ok":x.status==="Vermietet"?"neutral":"warn"}">${esc(x.status)}</span>${x.freiAb?`<span>frei ab ${esc(fmtDate(x.freiAb))}</span>`:""}${x.kalt?`<span>${esc(eur(x.kalt))} kalt</span>`:""}<span>${(x.fotos||[]).length} Fotos${x.video?" · Video":""}</span></div>
+  <div class="seg" role="group">${T.map(([v,l])=>`<button data-act="insTab" data-v="${v}" aria-pressed="${tab===v}">${esc(l)}</button>`).join("")}</div>
+  <div id="insB">${body}</div>`);
+  insWire();
+}
+/* ---- Zeitplan ---- */
+const ZP_ACT={film:["Rundgang","insTab","rund"],online:["Veröffentlichen","insTab","pub"],besicht:["Termine","insTab","leute"],auswahl:["Interessenten","insTab","leute"],vertrag:["Mietvertrag","insVertrag",""],rueck:["Protokoll","insProt","Rücknahme (Auszug)"],einzug:["Protokoll","insProt","Übergabe (Einzug)"],reno:["Handwerker","insHw",""]};
+function insPlan(x){
+  const t=today(), kd=kuendOfW(x.wohnungId);
+  return `${kd?`<div class="note info">${esc(kd.m.name)} hat gekündigt zum ${esc(fmtDate(kd.ende))}. Der Zeitplan ist automatisch rückwärts vom Auszug berechnet.</div>`:""}
+  <div class="fields"><div class="field"><label for="ip_f">Frei ab (Einzug neuer Mieter möglich)</label><input id="ip_f" type="date" value="${esc(x.freiAb||"")}"></div>
+  <div class="field chk"><input type="checkbox" id="ip_b"${x.bewohnt?" checked":""}><label for="ip_b">Wohnung ist noch bewohnt</label></div></div>
+  <div class="row"><button class="btn sm" id="ip_n">Zeitplan neu berechnen</button></div>
+  <div class="list">${(x.zeitplan||[]).map((s,i)=>{ const late=!s.done&&s.d<t, a=ZP_ACT[s.k]; return `<div class="item s-${s.done?"ok":late?"bad":s.d<=dAdd(t,7)?"warn":"neutral"}"><div class="head" style="align-items:center"><div class="field chk" style="margin:0"><input type="checkbox" data-zp="${i}"${s.done?" checked":""} aria-label="erledigt"></div><div style="flex:1;min-width:0"><b>${esc(s.t)}</b><div class="meta">${esc(fmtDate(s.d))}${late?" · überfällig":""}</div></div>${a&&!s.done?`<button class="btn sm ghost" data-act="${a[1]}" data-v="${esc(a[2])}">${esc(a[0])}</button>`:""}</div></div>`; }).join("")}</div>
+  <div class="small">Fällige Schritte erscheinen auf der Startseite unter „Braucht Aufmerksamkeit“.</div>`;
+}
+/* ---- Rundgang & Fotos ---- */
+function insRund(x){
+  const v=x.video, need=x.bewohnt&&!x.mieterZust;
+  return `<div class="small">Handy <b>quer</b> halten, Licht an, an der Wohnungstür starten und langsam Raum für Raum gehen. In jedem Raum einmal ruhig schwenken. 1–3 Minuten reichen. Der Ton wird entfernt.</div>
+  ${x.bewohnt?`<div class="field chk"><input type="checkbox" id="ir_z"${x.mieterZust?" checked":""}><label for="ir_z">Der jetzige Mieter hat dem Filmen und Fotografieren zugestimmt (Pflicht, solange er dort wohnt)</label></div>`:""}
+  <div class="row"><label class="btn pri${need?" dis":""}" for="ir_cam">${CAMSVG}<span>${v?"Rundgang neu aufnehmen":"Rundgang aufnehmen"}</span></label><input id="ir_cam" class="hide" type="file" accept="video/*" capture="environment"${need?" disabled":""}>
+  <label class="btn${need?" dis":""}" for="ir_vid">Video wählen</label><input id="ir_vid" class="hide" type="file" accept="video/*"${need?" disabled":""}>
+  <label class="btn${need?" dis":""}" for="ir_img">${GALSVG}<span>Fotos hinzufügen</span></label><input id="ir_img" class="hide" type="file" accept="image/*" multiple${need?" disabled":""}></div>
+  <div id="ir_st"></div>
+  ${v?`<section class="list"><div class="sec-title"><h3>Video-Rundgang</h3><span>${v.dauer?Math.round(v.dauer)+" s":""}</span></div>
+   <video id="ir_v" src="${esc(assetUrl(v.asset))}" controls playsinline muted preload="metadata" style="width:100%;border-radius:14px;background:#000"></video>
+   <div class="row">${(v.kapitel||[]).map(k=>`<button class="pill pbtn" data-kap="${esc(k.von)}">${esc(k.raum)} · ${esc(fmtSek(k.von))}</button>`).join("")}</div>
+   <div class="row"><button class="btn sm danger" id="ir_vx">Video entfernen</button></div></section>`:""}
+  <section class="list"><div class="sec-title"><h3>Fotos für die Anzeige</h3><span>${(x.fotos||[]).length}</span></div>
+  ${(x.fotos||[]).length?`<div class="small">Erstes Foto = Titelbild. Tippe ★ für Titelbild, × um es aus der Anzeige zu nehmen (bleibt unter Fotos & Videos gespeichert).</div><div class="gallery">${x.fotos.map((f,i)=>`<div class="g"><img src="${esc(assetUrl(f.asset))}" alt="${esc(f.raum||"Foto")}" loading="lazy"><span class="cap">${i===0?"★ ":""}${esc(f.raum||"")}</span><button class="rb rot" data-fstar="${i}" aria-label="Titelbild" style="position:absolute;top:4px;left:4px">★</button><button class="rb" data-fdel="${i}" aria-label="Entfernen" style="position:absolute;top:4px;right:4px">×</button></div>`).join("")}</div>`:emptyBox("Noch keine Fotos. Nimm den Rundgang auf – die besten Standbilder je Raum werden automatisch als Fotos übernommen.")}</section>
+  ${(x.ausstattung||[]).length?`<div class="small"><b>Erkannte Ausstattung:</b> ${esc(x.ausstattung.join(", "))}</div>`:""}`;
+}
+const fmtSek=s=>{ s=Math.round(Number(s)||0); return `${Math.floor(s/60)}:${pad(s%60)}`; };
+function vidLoad(src){ return new Promise((res,rej)=>{ const v=document.createElement("video"); v.muted=true; v.playsInline=true; v.setAttribute("playsinline",""); v.preload="auto"; v.src=src; let ok=false; v.onloadeddata=()=>{ if(ok) return; ok=true; res(v); }; v.onerror=()=>rej(new Error("Video kann nicht gelesen werden")); setTimeout(()=>{ if(!ok) rej(new Error("Video lädt nicht")); },25000); v.load(); }); }
+function vidSeek(v,t){ return new Promise(res=>{ let d=false; const h=()=>{ if(d) return; d=true; v.removeEventListener("seeked",h); setTimeout(res,60); }; v.addEventListener("seeked",h); v.currentTime=Math.min(Math.max(0,t),Math.max(0,(v.duration||0)-0.1)); setTimeout(h,5000); }); }
+function vidFrame(v,maxW){ const s=Math.min(1,maxW/Math.max(v.videoWidth,v.videoHeight)); const c=document.createElement("canvas"); c.width=Math.round(v.videoWidth*s); c.height=Math.round(v.videoHeight*s); c.getContext("2d").drawImage(v,0,0,c.width,c.height); return new Promise(r=>c.toBlob(r,"image/jpeg",0.86)); }
+async function vidDur(v){ if(isFinite(v.duration)&&v.duration>0) return v.duration; await vidSeek(v,1e7); const d=v.currentTime; await vidSeek(v,0); return d||0; }
+/* Video verkleinern (max. 720p) und Ton entfernen – läuft in Echtzeit */
+async function shrinkVideo(file,onP){
+  if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream) return null;
+  const url=URL.createObjectURL(file);
+  try{
+    const v=await vidLoad(url), dur=await vidDur(v); if(!dur) return null;
+    const s=Math.min(1,720/Math.min(v.videoWidth,v.videoHeight)); const c=document.createElement("canvas"); c.width=Math.round(v.videoWidth*s/2)*2; c.height=Math.round(v.videoHeight*s/2)*2; const g=c.getContext("2d");
+    const mime=["video/mp4;codecs=avc1","video/mp4","video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"].find(m=>MediaRecorder.isTypeSupported(m)); if(!mime) return null;
+    const br=Math.max(500000,Math.min(1600000,Math.floor(17*8e6/dur)));
+    const rec=new MediaRecorder(c.captureStream(30),{mimeType:mime,videoBitsPerSecond:br}); const ch=[];
+    rec.ondataavailable=e=>{ if(e.data&&e.data.size) ch.push(e.data); };
+    const stopped=new Promise(r=>rec.onstop=r);
+    await vidSeek(v,0); g.drawImage(v,0,0,c.width,c.height);
+    rec.start(1000); await v.play();
+    await new Promise(res=>{ const tick=()=>{ g.drawImage(v,0,0,c.width,c.height); onP&&onP(Math.min(1,v.currentTime/dur)); if(v.ended||v.currentTime>=dur-0.05){ res(); return; } if(v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick); }; tick(); v.onended=()=>res(); });
+    rec.stop(); await stopped; v.pause();
+    return new Blob(ch,{type:mime.split(";")[0]});
+  }catch(e){ console.warn("shrinkVideo",e); return null; } finally{ URL.revokeObjectURL(url); }
+}
+async function insVideo(file){
+  const x=INS, stEl=()=>$("#ir_st"), say=(t,c="info")=>{ const e=stEl(); if(e) e.innerHTML=`<div class="note ${c}">${t}</div>`; };
+  if(!st.assets){ toast("Videos können hier nicht gespeichert werden"); return; }
+  const url=URL.createObjectURL(file);
+  try{
+    say("Video wird gelesen …");
+    const v=await vidLoad(url), dur=await vidDur(v);
+    if(dur>330){ say("Das Video ist länger als 5 Minuten. Bitte kürzer aufnehmen (1–3 Minuten).","bad"); return; }
+    /* 1) Standbilder für die KI */
+    const lim=st.sample?await st.sample.limits().catch(()=>null):null, n=Math.max(4,Math.min(16,lim?.images?.maxCount||8));
+    const times=[...Array(n)].map((_,i)=>Math.round((dur*(i+0.5)/n)*10)/10);
+    try{ await v.play(); v.pause(); }catch(e){}
+    const frames=[]; for(const t of times){ await vidSeek(v,t); frames.push(await vidFrame(v,640)); say(`Räume werden erkannt … ${frames.length}/${n}`); }
+    let ai={}; if(st.sample){ say("Claude erkennt Räume und Ausstattung …"); const r=await aiJson(`Das sind ${n} Standbilder aus einem Handy-Video-Rundgang durch eine Mietwohnung in Deutschland, in zeitlicher Reihenfolge. ${times.map((t,i)=>`Bild ${i+1} = Sekunde ${t}`).join(", ")}.
+Antworte nur mit JSON:
+{"kapitel":[{"raum":"${RAUM_ORDER.join("|")}","von":Sekunde}],"fotos":[{"bild":Nummer 1 bis ${n},"raum":"…","note":1-10 (wie gut eignet sich das Bild als Anzeigenfoto: scharf, hell, gerade, zeigt den Raum)}],"ausstattung":["kurze Stichworte, z. B. Einbauküche, Badewanne, Dusche, Fenster im Bad, Laminat, Parkett, Fliesen, Balkon, Fußbodenheizung, Kellerabteil"],"zustand":"ein kurzer sachlicher Satz","privat":true oder false (Personen, Familienfotos, Namen, Dokumente oder viele persönliche Gegenstände sichtbar)}
+Kapitel nur, wenn ein neuer Raum beginnt, aufsteigend, das erste bei 0. Nichts erfinden.`,frames); ai=r.v||{}; if(r.err) say(esc(r.err),"bad"); }
+    /* 2) beste Bilder je Raum in hoher Auflösung aus dem Original */
+    const fs=(ai.fotos||[]).filter(f=>f.bild>=1&&f.bild<=n); const best={};
+    fs.forEach(f=>{ const k=f.raum||"Raum"; if(!best[k]||(f.note||0)>(best[k].note||0)) best[k]=f; });
+    let pick=Object.values(best).sort((a,b)=>(RAUM_ORDER.indexOf(a.raum)+99)%99-(RAUM_ORDER.indexOf(b.raum)+99)%99).slice(0,12);
+    if(!pick.length) pick=[0,Math.floor(n/3),Math.floor(2*n/3)].map(i=>({bild:i+1,raum:""}));
+    const neuF=[];
+    for(const p of pick){ say(`Fotos werden gespeichert … ${neuF.length+1}/${pick.length}`); await vidSeek(v,times[p.bild-1]); const b=await vidFrame(v,1920); const up=await st.assets.upload(b); const mid=newId("med");
+      await st.db.collection("medien").doc(mid).set({objektId:x.objektId,wohnungId:x.wohnungId,phase:"Vor Vermietung",titel:p.raum||"Rundgang",typ:"foto",asset:up.id,datum:today(),geaendert:new Date().toISOString(),ausVideo:true});
+      neuF.push({asset:up.id,raum:p.raum||"",med:mid}); }
+    /* 3) Video verkleinern + ohne Ton hochladen */
+    say("Video wird verkleinert und der Ton entfernt … bitte Bildschirm anlassen.");
+    let small=await shrinkVideo(file,p=>say(`Video wird verkleinert und der Ton entfernt … ${Math.round(p*100)} % – bitte Bildschirm anlassen.`));
+    let mitTon=false; if(!small||(small.size>20*1024*1024&&file.size<small.size)){ small=file; mitTon=true; }
+    if(small.size>20*1024*1024){ say("Das Video ist auch verkleinert noch über 20 MB. Bitte kürzer aufnehmen. Die Fotos wurden trotzdem übernommen.","bad"); }
+    else{ say("Video wird hochgeladen …"); const up=await st.assets.upload(small); const mid=newId("med");
+      await st.db.collection("medien").doc(mid).set({objektId:x.objektId,wohnungId:x.wohnungId,phase:"Vor Vermietung",titel:"Rundgang",typ:"video",asset:up.id,datum:today(),geaendert:new Date().toISOString()});
+      if(x.video?.med){ /* altes Video bleibt unter Fotos & Videos */ }
+      const kap=(ai.kapitel||[]).filter(k=>k&&k.raum&&k.von!=null).map(k=>({raum:k.raum,von:Math.max(0,Math.min(dur,Number(k.von)||0))})).sort((a,b)=>a.von-b.von);
+      x.video={asset:up.id,med:mid,dauer:dur,kapitel:kap,mitTon}; }
+    x.fotos=[...neuF,...(x.fotos||[]).filter(f=>!f.ausVideo)].map(f=>f); neuF.forEach(f=>f.ausVideo=true);
+    x.ausstattung=[...new Set([...(x.ausstattung||[]),...(ai.ausstattung||[])])];
+    if(ai.zustand) x.zustand=ai.zustand;
+    const z=(x.zeitplan||[]).find(s=>s.k==="film"); if(z) z.done=true;
+    await insSave(x);
+    insRender(); if(ai.privat) setTimeout(()=>say("Achtung: Auf einigen Bildern sind persönliche Dinge oder Personen zu sehen. Bitte die Fotos prüfen und ggf. mit × aus der Anzeige nehmen.","bad"),50);
+    else toast(`Rundgang gespeichert · ${neuF.length} Fotos übernommen${mitTon?" (Video mit Ton – wird im Exposé stumm abgespielt)":""}`);
+  }catch(e){ console.error(e); say("Das Video konnte nicht verarbeitet werden. Bitte als MP4 aufnehmen oder Fotos hochladen.","bad"); }
+  finally{ URL.revokeObjectURL(url); }
+}
+async function insFotos(files){
+  const x=INS; if(!st.assets){ toast("Fotos können hier nicht gespeichert werden"); return; }
+  const el=$("#ir_st"), say=t=>{ if(el) el.innerHTML=`<div class="note info">${t}</div>`; };
+  const smalls=[]; for(const f of files) smalls.push(await compress(f,1920));
+  let ai=[]; if(st.sample){ say("Claude erkennt die Räume …"); const r=await aiJson(`Das sind ${smalls.length} Fotos einer Mietwohnung in Deutschland. Antworte nur mit JSON: {"fotos":[{"bild":Nummer ab 1,"raum":"${RAUM_ORDER.join("|")}"}],"ausstattung":["kurze Stichworte, nur was sicher zu sehen ist"]}`,smalls.map(b=>b)); if(r.v){ ai=r.v.fotos||[]; x.ausstattung=[...new Set([...(x.ausstattung||[]),...(r.v.ausstattung||[])])]; } }
+  for(let i=0;i<smalls.length;i++){ say(`Lade ${i+1} von ${smalls.length} …`); const up=await st.assets.upload(smalls[i]); const raum=ai.find(a=>a.bild===i+1)?.raum||""; const mid=newId("med");
+    await st.db.collection("medien").doc(mid).set({objektId:x.objektId,wohnungId:x.wohnungId,phase:"Vor Vermietung",titel:raum,typ:"foto",asset:up.id,datum:today(),geaendert:new Date().toISOString()});
+    x.fotos=[...(x.fotos||[]),{asset:up.id,raum,med:mid}]; }
+  await insSave(x,`${smalls.length} Foto(s) übernommen`); insRender();
+}
+/* ---- Anzeige & Miete ---- */
+function insVergleich(x,w){
+  const fl=Number(x.flaeche)||0, alt=Number(w.kalt)||Number(mieterOf(w.id)?.kalt)||0;
+  const andere=list("wohnungen").filter(y=>y.objektId===w.objektId&&y.id!==w.id&&Number(y.kalt)&&Number(y.flaeche)).map(y=>y.kalt/y.flaeche);
+  const qmH=andere.length?andere.reduce((s,v)=>s+v,0)/andere.length:null;
+  const vg=Number(x.vergleich)||null, grenze=x.bremse&&vg&&fl?Math.max(Math.round(vg*1.1*fl),alt):null;
+  return {fl,alt,altQm:alt&&fl?alt/fl:null,qmH,vg,grenze,qm:x.kalt&&fl?x.kalt/fl:null};
+}
+function insAnz(x,w,o){
+  const V=insVergleich(x,w), e=o.energie, f2=n=>n==null?"–":n.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const ort=(String(o.adresse||"").match(/\d{5}\s+([^,]+)/)||[])[1]||"";
+  return `<div class="fields">
+  <div class="field"><label for="ia_fl">Fläche m²</label><input id="ia_fl" type="number" step="0.1" value="${esc(x.flaeche??"")}"></div>
+  <div class="field"><label for="ia_zi">Zimmer</label><input id="ia_zi" type="number" step="0.5" value="${esc(x.zimmer??"")}"></div>
+  <div class="field"><label for="ia_et">Etage / Lage</label><input id="ia_et" type="text" value="${esc(x.etage||"")}"></div>
+  <div class="field"><label for="ia_fa">Frei ab</label><input id="ia_fa" type="date" value="${esc(x.freiAb||"")}"></div>
+  <div class="field"><label for="ia_k">Kaltmiete €</label><input id="ia_k" type="number" step="1" value="${esc(x.kalt??"")}"></div>
+  <div class="field"><label for="ia_nk">Nebenkosten-Vorauszahlung €</label><input id="ia_nk" type="number" step="1" value="${esc(x.nk??"")}"></div>
+  <div class="field chk"><input type="checkbox" id="ia_h"${x.heizInNk?" checked":""}><label for="ia_h">Heizkosten in den Nebenkosten enthalten</label></div>
+  <div class="field"><label for="ia_kt">Kaution € (max. 3 Kaltmieten)</label><input id="ia_kt" type="number" step="1" value="${esc(x.kaution??"")}"></div>
+  <div class="field"><label for="ia_ti">Haustiere</label><select id="ia_ti">${["nach Absprache","Kleintiere erlaubt","nein"].map(t=>`<option${t===x.tiere?" selected":""}>${t}</option>`).join("")}</select></div>
+  <div class="field"><label for="ia_ex">Extras (optional)</label><input id="ia_ex" type="text" value="${esc(x.extras||"")}" placeholder="z. B. Stellplatz 30 €, Keller"></div></div>
+  <section class="card"><div class="sec-title"><h3>Passende Kaltmiete</h3></div>
+   <div class="row small"><span>Bisher: <b>${V.alt?esc(eur(V.alt)):"–"}</b>${V.altQm?` (${f2(V.altQm)} €/m²)`:""}</span><span>Andere Wohnungen im Haus: <b>${V.qmH?f2(V.qmH)+" €/m²":"–"}</b></span><span>Jetzt: <b>${V.qm?f2(V.qm)+" €/m²":"–"}</b></span></div>
+   <div class="fields"><div class="field"><label for="ia_vg">Ortsübliche Vergleichsmiete €/m² (Mietspiegel)</label><input id="ia_vg" type="number" step="0.01" value="${esc(x.vergleich??"")}"></div>
+   <div class="field chk"><input type="checkbox" id="ia_mb"${x.bremse?" checked":""}><label for="ia_mb">Mietpreisbremse gilt in ${esc(ort||"diesem Ort")}</label></div></div>
+   ${V.grenze?`<div class="note ${x.kalt&&x.kalt>V.grenze?"bad":"info"}">Obergrenze ca. <b>${esc(eur(V.grenze))}</b> kalt (110 % der Vergleichsmiete${V.alt&&V.alt>=Math.round(V.vg*1.1*V.fl)?", bzw. die höhere Vormiete":""}).${x.kalt&&x.kalt>V.grenze?" Deine Kaltmiete liegt darüber!":""} Ausnahmen (Neubau, umfassende Modernisierung) prüfen.</div>`:""}
+   <div class="row"><a class="btn sm ghost" href="${esc("https://www.google.com/search?q="+encodeURIComponent("Mietspiegel "+(ort||"")+" "+new Date().getFullYear()))}" target="_blank" rel="noopener">Mietspiegel suchen</a><a class="btn sm ghost" href="${esc("https://www.google.com/search?q="+encodeURIComponent("Mietpreisbremse NRW Gemeinden "+(ort||"")))}" target="_blank" rel="noopener">Gilt die Mietpreisbremse?</a></div>
+   <div class="small">Eine Marktrecherche (Vergleichsangebote in der Gegend) kann Claude im Chat für dich machen. Kein Rechtsrat.</div></section>
+  <section class="card"><div class="sec-title"><h3>Energieausweis</h3></div>${e?.kennwert?`<div class="small">${esc(energieText(e))}</div>`:`<div class="note bad">Fehlt – ohne die Pflichtangaben darf die Anzeige nicht online gehen (Bußgeld bis 15.000 €).</div><div class="row"><button class="btn sm" data-act="dokAdd" data-o="${esc(x.objektId)}" data-k="Energieausweis">Energieausweis hochladen</button><button class="btn sm ghost" data-act="energieEdit" data-o="${esc(x.objektId)}">Werte eintippen</button></div>`}</section>
+  <div class="fields"><div class="field full"><label for="ia_t">Titel der Anzeige</label><input id="ia_t" type="text" maxlength="70" value="${esc(x.titel||"")}"></div>
+  <div class="field full"><label for="ia_tx">Beschreibung</label><textarea id="ia_tx" rows="12">${esc(x.text||"")}</textarea></div></div>
+  <div class="row"><button class="btn" id="ia_ai">✨ Mit KI schreiben</button><button class="btn pri" id="ia_s">Speichern</button></div>
+  <div class="small">Die KI schreibt aus Daten, erkannter Ausstattung und Lage – sachlich und ohne diskriminierende Formulierungen. Bitte vor dem Veröffentlichen lesen.</div>`;
+}
+function insReadAnz(x){
+  const g=id=>$(id); if(!g("#ia_k")) return;
+  Object.assign(x,{flaeche:num(g("#ia_fl").value),zimmer:num(g("#ia_zi").value),etage:g("#ia_et").value.trim(),freiAb:g("#ia_fa").value,kalt:num(g("#ia_k").value),nk:num(g("#ia_nk").value),heizInNk:g("#ia_h").checked,kaution:num(g("#ia_kt").value),tiere:g("#ia_ti").value,extras:g("#ia_ex").value.trim(),vergleich:num(g("#ia_vg").value),bremse:g("#ia_mb").checked,titel:g("#ia_t").value.trim(),text:g("#ia_tx").value});
+}
+async function insKiText(){
+  const x=INS, w=wohn(x.wohnungId), o=st.data.objekte[x.objektId]||{}; insReadAnz(x);
+  if(x.kaution&&x.kalt&&x.kaution>x.kalt*3){ toast("Kaution darf höchstens 3 Kaltmieten betragen"); }
+  const b=$("#ia_ai"); b.disabled=true; b.textContent="Claude schreibt …";
+  const adr=String(o.adresse||""), strasse=adr.split(",")[0].replace(/\s*\d+\s*[a-zA-Z]?\s*$/,"").trim(), ort=(adr.match(/\d{5}\s+[^,]+/)||[""])[0];
+  const daten={strasse,ort,flaeche:x.flaeche,zimmer:x.zimmer,etage:x.etage,freiAb:x.freiAb?fmtDate(x.freiAb):"sofort",kaltmiete:x.kalt,nebenkosten:x.nk,heizkostenInNebenkosten:x.heizInNk,kaution:x.kaution,haustiere:x.tiere,extras:x.extras,ausstattung:x.ausstattung,raeume:(x.video?.kapitel||[]).map(k=>k.raum).concat((x.fotos||[]).map(f=>f.raum)).filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i),zustand:x.zustand||"",garten:!!o.garten,energieausweis:energieText(o.energie)||"fehlt",videoRundgang:!!x.video,notiz:w.notiz||""};
+  const r=await aiJson(`Schreibe eine Wohnungsanzeige für Kleinanzeigen und ein Exposé auf Deutsch. Sachlich, freundlich, ehrlich, keine Übertreibungen. Nichts erfinden, was nicht in den Daten steht. Keine diskriminierenden Formulierungen (AGG): keine Wünsche zu Herkunft, Religion, Geschlecht, Alter, Behinderung, Familienstand oder sexueller Identität. Keine Hausnummer, keine Telefonnummer, keine Namen von Mietern.
+Daten: ${JSON.stringify(daten)}
+Antworte nur mit JSON: {"titel":"höchstens 65 Zeichen, z. B. Helle 3-Zimmer-Wohnung mit Balkon in Bad Salzuflen","text":"Fließtext mit Absätzen (\\n\\n): kurze Einleitung, Räume & Ausstattung, Lage (nur allgemein, nichts erfinden), Kosten & Bedingungen (Kaltmiete, Nebenkosten, Kaution, frei ab, Haustiere), dann die Energieausweis-Angaben wörtlich, zum Schluss: ${x.video?"Video-Rundgang auf Anfrage per Link und ":""}Besichtigung nach Terminabsprache."}`);
+  if(r.v?.text){ $("#ia_t").value=String(r.v.titel||"").slice(0,70); $("#ia_tx").value=r.v.text; x.titel=$("#ia_t").value; x.text=r.v.text; await insSave(x,"Text erstellt – bitte lesen und ggf. anpassen"); }
+  else toast(r.err||"Text konnte nicht erstellt werden");
+  b.disabled=false; b.textContent="✨ Mit KI schreiben";
+}
+/* ---- Veröffentlichen ---- */
+function insCheck(x,o){
+  return [["Titel",!!x.titel],["Beschreibung",String(x.text||"").length>80],["Kaltmiete",!!x.kalt],["Mindestens 3 Fotos",(x.fotos||[]).length>=3],["Energieausweis-Angaben",!!o.energie?.kennwert||!!x.ohneEA],["Kaution ≤ 3 Kaltmieten",!x.kaution||!x.kalt||x.kaution<=x.kalt*3]];
+}
+function insVollText(x,o){
+  const ea=energieText(o.energie);
+  return `${x.text||""}${ea&&!String(x.text||"").includes("kWh")?`\n\n${ea}`:""}`;
+}
+function insFakten(x){ return [["Kaltmiete",x.kalt!=null?String(x.kalt):""],["Nebenkosten",x.nk!=null?String(x.nk):""],["Warmmiete",x.kalt!=null?String((Number(x.kalt)||0)+(Number(x.nk)||0)):""],["Kaution",x.kaution!=null?String(x.kaution):""],["Wohnfläche m²",x.flaeche!=null?String(x.flaeche):""],["Zimmer",x.zimmer!=null?String(x.zimmer):""],["Etage",x.etage||""],["Verfügbar ab",x.freiAb?fmtDate(x.freiAb):"sofort"]].filter(f=>f[1]!==""); }
+function insPub(x,w,o){
+  const ch=insCheck(x,o), ok=ch.every(c=>c[1]), F=insFakten(x);
+  const auftrag=`Trage die Kleinanzeige für ${objName(x.objektId)} · ${w.lage||w.id} (Inserat ${x.id}) bei Kleinanzeigen ein.`;
+  const exAuftrag=`Erstelle die Exposé-Seite mit Video-Rundgang für ${objName(x.objektId)} · ${w.lage||w.id} (Inserat ${x.id}).`;
+  return `<section class="list"><div class="sec-title"><h3>Prüfung</h3><span>${ok?"bereit":"noch nicht bereit"}</span></div>
+   <div class="row">${ch.map(([l,v])=>`<span class="pill ${v?"ok":"bad"}">${v?"✓":"✗"} ${esc(l)}</span>`).join("")}</div>
+   ${o.energie?.kennwert?"":`<div class="field chk"><input type="checkbox" id="ip_oea"${x.ohneEA?" checked":""}><label for="ip_oea">Ausnahme: für dieses Haus ist kein Energieausweis nötig (z. B. Baudenkmal)</label></div>`}</section>
+  <section class="card"><div class="sec-title"><h3>A · Kleinanzeigen halbautomatisch</h3></div>
+   <div class="small">1. Text kopieren · 2. Fotos aufs Handy holen · 3. Kleinanzeigen öffnen und einfügen. Dauert 2–3 Minuten.</div>
+   <div class="row"><button class="btn pri" id="ip_ct"${ok?"":" disabled"}>1 · Titel + Text kopieren</button><button class="btn" id="ip_fo"${ok?"":" disabled"}>2 · Fotos speichern / teilen</button><a class="btn${ok?"":" dis"}" href="https://www.kleinanzeigen.de/p-anzeige-aufgeben.html" target="_blank" rel="noopener">3 · Kleinanzeigen öffnen</a></div>
+   <div class="small">Felder einzeln kopieren:</div><div class="row">${F.map(([l,v])=>`<button class="pill pbtn" data-cp="${esc(v)}">${esc(l)}: ${esc(v)}</button>`).join("")}</div></section>
+  <section class="card"><div class="sec-title"><h3>B · Claude trägt es für dich ein</h3></div>
+   <div class="small">Schreib im Claude-Chat (Projekt JH) den folgenden Satz. Claude füllt die Anzeige in deinem Browser aus, in dem du bei Kleinanzeigen angemeldet bist. Den letzten Klick auf „Anzeige aufgeben“ machst du selbst.</div>
+   <div class="row"><button class="btn" data-cp="${esc(auftrag)}">Satz kopieren</button></div></section>
+  <section class="card"><div class="sec-title"><h3>Exposé</h3></div>
+   <div class="row"><button class="btn pri" id="ip_pdf">Exposé als PDF</button><button class="btn" data-cp="${esc(exAuftrag)}">Exposé-Seite mit Link: Satz für Claude kopieren</button></div>
+   <div class="small">Die Exposé-Seite (Video mit Raum-Knöpfen, Fotos, Daten, Knopf „Besichtigung anfragen“) erstellt Claude auf Zuruf im Chat. Den Link trägst du hier ein:</div>
+   <div class="fields"><div class="field full"><label for="ip_ex">Exposé-Link</label><input id="ip_ex" type="url" value="${esc(x.exposeUrl||"")}" placeholder="https://…"></div>
+   <div class="field full"><label for="ip_ka">Link zur Kleinanzeige (nach dem Einstellen)</label><input id="ip_ka" type="url" value="${esc(x.kaUrl||"")}" placeholder="https://www.kleinanzeigen.de/s-anzeige/…"></div></div>
+   <div class="row"><button class="btn" id="ip_sv">Links speichern</button>${x.status!=="Online"?`<button class="btn pri" id="ip_on"${ok?"":" disabled"}>Als „online“ markieren</button>`:`<button class="btn" id="ip_off">Anzeige offline</button>`}</div></section>`;
+}
+async function insShareFotos(x){
+  const fs=[]; for(const [i,f] of (x.fotos||[]).entries()){ try{ const r=await fetch(assetUrl(f.asset)); const b=await r.blob(); fs.push(new File([b],`${pad(i+1)}_${(f.raum||"Foto").replace(/[^\wäöüÄÖÜß-]/g,"")}.jpg`,{type:b.type||"image/jpeg"})); }catch(e){} }
+  if(!fs.length){ toast("Keine Fotos"); return; }
+  if(navigator.canShare&&navigator.canShare({files:fs})){ try{ await navigator.share({files:fs,title:x.titel||"Wohnung"}); return; }catch(e){ if(e?.name==="AbortError") return; } }
+  for(const f of fs) await saveFile(f.name,f);
+}
+async function insPdf(x){
+  const w=wohn(x.wohnungId), o=st.data.objekte[x.objektId]||{}, c=st.cfg||{};
+  const {jsPDF}=window.jspdf; const d=new jsPDF({unit:"mm",format:"a4"});
+  const img=async a=>{ try{ const r=await fetch(assetUrl(a)); const b=await compress(await r.blob(),1400); const du=await blobToDataUrl(b); const i=new Image(); i.src=du; await i.decode(); return {du,r:i.naturalHeight/i.naturalWidth}; }catch(e){ return null; } };
+  d.setFont("helvetica","bold"); d.setFontSize(18); d.text(d.splitTextToSize(x.titel||"Wohnung zu vermieten",170),20,22);
+  d.setFont("helvetica","normal"); d.setFontSize(10); d.setTextColor(90); d.text(`${(String(o.adresse||"").match(/\d{5}\s+[^,]+/)||[""])[0]} · ${x.etage||""}`,20,34); d.setTextColor(0);
+  let y=40; const f0=x.fotos?.[0]&&await img(x.fotos[0].asset);
+  if(f0){ const h=Math.min(100,170*f0.r); d.addImage(f0.du,"JPEG",20,y,h/f0.r,h); y+=h+6; }
+  const F=insFakten(x); d.setFontSize(10.5);
+  F.forEach(([l,v],i)=>{ const cx=20+(i%2)*85, cy=y+Math.floor(i/2)*6.5; d.setTextColor(90); d.text(l,cx,cy); d.setTextColor(0); d.setFont("helvetica","bold"); d.text(/miete|kosten|kaution/i.test(l)?eur(v):v,cx+38,cy); d.setFont("helvetica","normal"); });
+  y+=Math.ceil(F.length/2)*6.5+4;
+  const lines=d.splitTextToSize(insVollText(x,o),170);
+  for(const ln of lines){ if(y>280){ d.addPage(); y=20; } d.text(ln,20,y); y+=5.2; }
+  const rest=(x.fotos||[]).slice(1,13);
+  if(rest.length){ d.addPage(); y=20; d.setFont("helvetica","bold"); d.text("Fotos",20,y); d.setFont("helvetica","normal"); y+=6; let col=0;
+    for(const f of rest){ const im=await img(f.asset); if(!im) continue; const W=82, H=Math.min(62,W*im.r); if(y+H>285){ d.addPage(); y=20; } d.addImage(im.du,"JPEG",20+col*88,y,H/im.r>W?W:H/im.r,H); d.setFontSize(8.5); d.setTextColor(90); d.text(f.raum||"",20+col*88,y+H+4); d.setTextColor(0); d.setFontSize(10.5); col++; if(col===2){ col=0; y+=H+9; } } }
+  d.setFontSize(9); d.setTextColor(90);
+  const kontakt=["Besichtigung nach Terminabsprache",c.name,c.telefon,c.email,x.exposeUrl?`Video-Rundgang: ${x.exposeUrl}`:""].filter(Boolean).join(" · ");
+  const pc=d.getNumberOfPages(); for(let i=1;i<=pc;i++){ d.setPage(i); d.text(d.splitTextToSize(kontakt,170),20,290); }
+  const blob=d.output("blob"), name=`Expose_${(w.lage||w.id).replace(/\W+/g,"_")}.pdf`;
+  const file=new File([blob],name,{type:"application/pdf"});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file],title:x.titel||"Exposé"}); return; }catch(e){ if(e?.name==="AbortError") return; } }
+  await saveFile(name,blob);
+}
+/* ---- Interessenten & Termine ---- */
+function slotTxt(s){ const dt=new Date(s.dt); return `${dt.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"})} ${pad(dt.getHours())}:${pad(dt.getMinutes())} Uhr`; }
+function insLeute(x){
+  const sl=(x.slots||[]).slice().sort((a,b)=>a.dt.localeCompare(b.dt));
+  const L=(x.leute||[]).slice().sort((a,b)=>INS_ST.indexOf(a.status)-INS_ST.indexOf(b.status));
+  return `<section class="list"><div class="sec-title"><h3>Besichtigungstermine</h3><span>${sl.length}</span></div>
+   <div class="row"><input id="il_dt" type="datetime-local" aria-label="Termin" style="flex:1"><button class="btn sm" id="il_add">Termin hinzufügen</button><button class="btn sm ghost" id="il_auto">3 Termine vorschlagen</button></div>
+   ${sl.length?`<div class="row">${sl.map(s=>{ const n=(x.leute||[]).filter(p=>p.slot===s.dt).length; return `<span class="pill ${n?"ok":"neutral"}">${esc(slotTxt(s))}${n?` · ${n}`:""} <button class="rb" data-sdel="${esc(s.dt)}" aria-label="Termin löschen" style="margin-inline-start:4px">×</button></span>`; }).join("")}</div>`:`<div class="small">Lege Zeitfenster fest – Interessenten bekommen sie per WhatsApp zur Auswahl. Tipp: mehrere Leute ins gleiche Zeitfenster einladen (Sammelbesichtigung).</div>`}</section>
+  <section class="list"><div class="sec-title"><h3>Interessenten</h3><span>${L.length}</span></div>
+   <div class="row"><button class="btn pri" id="il_new">Interessent eintragen</button></div>
+   ${L.length?L.map(p=>`<div class="item s-${p.status==="Zusage"?"ok":p.status==="Absage"?"neutral":"warn"}"><div class="head"><div style="flex:1;min-width:0"><b>${esc(p.name)}</b><div class="meta">${[p.tel,p.mail,p.personen?p.personen+" Pers.":"",p.slot?slotTxt({dt:p.slot}):"",p.notiz].filter(Boolean).map(esc).join(" · ")}</div></div><select data-pst="${esc(p.id)}" aria-label="Status">${INS_ST.map(s=>`<option${s===p.status?" selected":""}>${s}</option>`).join("")}</select></div>
+    <div class="row">${waBtn(p.tel,insWaEinl(x,p),"Termine senden")}${p.slot?waBtn(p.tel,insWaBest(x,p),"Termin bestätigen"):""}<button class="btn sm" data-act="insSelbst" data-v="${esc(p.id)}">Selbstauskunft</button>${p.status==="Zusage"?`<button class="btn sm pri" data-act="insMieter" data-v="${esc(p.id)}">Als Mieter übernehmen</button>`:""}${p.status!=="Zusage"?waBtn(p.tel,insWaAbs(x,p),"Absage"):""}<button class="btn sm ghost" data-pedit="${esc(p.id)}">Bearbeiten</button></div></div>`).join(""):emptyBox("Noch keine Interessenten. Anfragen von Kleinanzeigen oder aus dem Exposé hier eintragen.")}</section>`;
+}
+function insWaEinl(x,p){ const sl=(x.slots||[]).filter(s=>s.dt>new Date().toISOString().slice(0,16)).sort((a,b)=>a.dt.localeCompare(b.dt)); const w=wohn(x.wohnungId); return `Hallo ${p.name},\n\nvielen Dank für Ihr Interesse an der Wohnung${x.titel?` „${x.titel}“`:""}.${x.exposeUrl?`\n\nHier können Sie sich die Wohnung schon vorab im Video-Rundgang ansehen:\n${x.exposeUrl}`:""}\n\n${sl.length?`Besichtigungstermine:\n${sl.map((s,i)=>`${i+1}) ${slotTxt(s)}`).join("\n")}\n\nBitte antworten Sie mit der Nummer des passenden Termins.`:"Wann passt Ihnen eine Besichtigung?"}\n\nViele Grüße\n${st.cfg?.name||""}`; }
+function insWaBest(x,p){ const o=st.data.objekte[x.objektId]||{}; return `Hallo ${p.name},\n\nhiermit bestätige ich Ihren Besichtigungstermin am ${slotTxt({dt:p.slot})}.\nAdresse: ${o.adresse||""}${wohn(x.wohnungId)?.lage?`, ${wohn(x.wohnungId).lage}`:""}\n\nBitte bringen Sie, wenn möglich, eine ausgefüllte Selbstauskunft und Einkommensnachweise mit.\n\nViele Grüße\n${st.cfg?.name||""}`; }
+function insWaAbs(x,p){ return `Hallo ${p.name},\n\nvielen Dank für Ihr Interesse an der Wohnung. Leider haben wir uns für eine andere Bewerbung entschieden. Ich wünsche Ihnen viel Erfolg bei der Suche.\n\nViele Grüße\n${st.cfg?.name||""}`; }
+function insPerson(pid){
+  const x=INS, p=(x.leute||[]).find(q=>q.id===pid)||{id:newId("p"),status:"Neu"}, sl=(x.slots||[]).slice().sort((a,b)=>a.dt.localeCompare(b.dt));
+  $("#insB").innerHTML=`<h3>${pid?"Interessent bearbeiten":"Interessent eintragen"}</h3><div class="fields">
+   <div class="field full"><label for="pp_n">Name</label><input id="pp_n" type="text" value="${esc(p.name||"")}"></div>
+   <div class="field"><label for="pp_t">Telefon (WhatsApp)</label><input id="pp_t" type="tel" value="${esc(p.tel||"")}"></div>
+   <div class="field"><label for="pp_m">E-Mail</label><input id="pp_m" type="email" value="${esc(p.mail||"")}"></div>
+   <div class="field"><label for="pp_p">Personen</label><input id="pp_p" type="number" value="${esc(p.personen||"")}"></div>
+   <div class="field"><label for="pp_s">Termin</label><select id="pp_s"><option value="">–</option>${sl.map(s=>`<option value="${esc(s.dt)}"${s.dt===p.slot?" selected":""}>${esc(slotTxt(s))}</option>`).join("")}</select></div>
+   <div class="field"><label for="pp_q">Quelle</label><select id="pp_q">${["Kleinanzeigen","Exposé-Link","Empfehlung","Telefon","Sonstiges"].map(q=>`<option${q===p.quelle?" selected":""}>${q}</option>`).join("")}</select></div>
+   <div class="field full"><label for="pp_no">Notiz</label><input id="pp_no" type="text" value="${esc(p.notiz||"")}"></div></div>
+   <div class="row end">${pid?`<button class="btn danger" id="pp_x">Löschen</button>`:""}<button class="btn" data-act="insTab" data-v="leute">Abbrechen</button><button class="btn pri" id="pp_ok">Speichern</button></div>`;
+  $("#pp_ok").onclick=async()=>{ const n=$("#pp_n").value.trim(); if(!n){ toast("Bitte Namen eintragen"); return; }
+    Object.assign(p,{name:n,tel:$("#pp_t").value.trim(),mail:$("#pp_m").value.trim(),personen:num($("#pp_p").value),slot:$("#pp_s").value,quelle:$("#pp_q").value,notiz:$("#pp_no").value.trim()}); if(p.slot&&p.status==="Neu") p.status="Termin";
+    x.leute=[...(x.leute||[]).filter(q=>q.id!==p.id),p]; await insSave(x,"Gespeichert"); x._tab="leute"; insRender(); };
+  if(pid) $("#pp_x").onclick=async()=>{ x.leute=(x.leute||[]).filter(q=>q.id!==pid); await insSave(x,"Gelöscht"); insRender(); };
+}
+/* ---- Verdrahtung im Blatt ---- */
+function insWire(){
+  const x=INS, B=$("#insB"); if(!B) return;
+  B.querySelectorAll("[data-cp]").forEach(b=>b.onclick=async()=>{ try{ await navigator.clipboard.writeText(b.dataset.cp); toast("Kopiert"); }catch(e){ toast("Kopieren nicht möglich"); } });
+  if(x._tab==="plan"){
+    B.querySelectorAll("[data-zp]").forEach(c=>c.onchange=async()=>{ x.zeitplan[+c.dataset.zp].done=c.checked; await insSave(x); insRender(); });
+    $("#ip_n").onclick=async()=>{ x.freiAb=$("#ip_f").value; x.bewohnt=$("#ip_b").checked; const alt=Object.fromEntries((x.zeitplan||[]).map(s=>[s.k,s.done])); x.zeitplan=zeitplanAuto(x.freiAb,x.bewohnt).map(s=>({...s,done:!!alt[s.k]})); await insSave(x,"Zeitplan neu berechnet"); insRender(); };
+    $("#ip_f").onchange=$("#ip_n").onclick;
+  }
+  if(x._tab==="rund"){
+    const z=$("#ir_z"); if(z) z.onchange=async()=>{ x.mieterZust=z.checked; await insSave(x); insRender(); };
+    const vf=e=>{ const f=e.target.files[0]; e.target.value=""; if(f) insVideo(f); };
+    $("#ir_cam").onchange=vf; $("#ir_vid").onchange=vf;
+    $("#ir_img").onchange=e=>{ const fs=[...e.target.files]; e.target.value=""; if(fs.length) insFotos(fs); };
+    B.querySelectorAll("[data-kap]").forEach(b=>b.onclick=()=>{ const v=$("#ir_v"); if(v){ v.currentTime=Number(b.dataset.kap)||0; v.play().catch(()=>{}); } });
+    B.querySelectorAll("[data-fstar]").forEach(b=>b.onclick=async()=>{ const i=+b.dataset.fstar; const [f]=x.fotos.splice(i,1); x.fotos.unshift(f); await insSave(x,"Titelbild gesetzt"); insRender(); });
+    B.querySelectorAll("[data-fdel]").forEach(b=>b.onclick=async()=>{ x.fotos.splice(+b.dataset.fdel,1); await insSave(x); insRender(); });
+    const vx=$("#ir_vx"); if(vx) vx.onclick=async()=>{ if(!await ask("Video aus der Anzeige entfernen? (Es bleibt unter Fotos & Videos gespeichert.)","Entfernen")) return; x.video=null; await insSave(x); insRender(); };
+  }
+  if(x._tab==="anz"){
+    const w=wohn(x.wohnungId);
+    const re=async()=>{ insReadAnz(x); await insSave(x); insRender(); };
+    ["#ia_k","#ia_fl","#ia_vg"].forEach(id=>$(id).onchange=re); $("#ia_mb").onchange=re;
+    $("#ia_s").onclick=async()=>{ insReadAnz(x); if(x.kaution&&x.kalt&&x.kaution>x.kalt*3){ toast("Kaution darf höchstens 3 Kaltmieten betragen (§ 551 BGB)"); return; } await insSave(x,"Gespeichert"); insRender(); };
+    $("#ia_ai").onclick=()=>insKiText();
+  }
+  if(x._tab==="pub"){
+    const o=st.data.objekte[x.objektId]||{};
+    const oea=$("#ip_oea"); if(oea) oea.onchange=async()=>{ x.ohneEA=oea.checked; await insSave(x); insRender(); };
+    const ct=$("#ip_ct"); if(ct) ct.onclick=async()=>{ try{ await navigator.clipboard.writeText(`${x.titel}\n\n${insVollText(x,o)}`); toast("Titel + Text kopiert – bei Kleinanzeigen einfügen"); }catch(e){ toast("Kopieren nicht möglich"); } };
+    $("#ip_fo").onclick=()=>insShareFotos(x);
+    $("#ip_pdf").onclick=async()=>{ $("#ip_pdf").disabled=true; $("#ip_pdf").textContent="Exposé wird erstellt …"; try{ await insPdf(x); }catch(e){ console.error(e); toast("PDF fehlgeschlagen"); } const b=$("#ip_pdf"); if(b){ b.disabled=false; b.textContent="Exposé als PDF"; } };
+    const links=()=>{ x.exposeUrl=$("#ip_ex").value.trim(); x.kaUrl=$("#ip_ka").value.trim(); };
+    $("#ip_sv").onclick=async()=>{ links(); await insSave(x,"Gespeichert"); };
+    const on=$("#ip_on"); if(on) on.onclick=async()=>{ links(); x.status="Online"; x.online=today(); const z=(x.zeitplan||[]).find(s=>s.k==="online"); if(z) z.done=true; await insSave(x,"Anzeige ist online"); insRender(); };
+    const off=$("#ip_off"); if(off) off.onclick=async()=>{ x.status="Vorbereitung"; await insSave(x,"Offline"); insRender(); };
+  }
+  if(x._tab==="leute"){
+    $("#il_add").onclick=async()=>{ const v=$("#il_dt").value; if(!v){ toast("Datum und Uhrzeit wählen"); return; } x.slots=[...(x.slots||[]).filter(s=>s.dt!==v),{dt:v}]; await insSave(x); insRender(); };
+    $("#il_auto").onclick=async()=>{ const base=(x.zeitplan||[]).find(s=>s.k==="besicht")?.d||today(); let d=base<today()?dAdd(today(),2):base; const out=[]; for(let i=0;i<21&&out.length<3;i++){ const dd=dAdd(d,i), wd=new Date(dd+"T12:00:00").getDay(); if(wd===6) out.push(dd+"T11:00"); else if(wd===2||wd===4) out.push(dd+"T17:30"); } x.slots=[...(x.slots||[]),...out.filter(o=>!(x.slots||[]).some(s=>s.dt===o)).map(dt=>({dt}))]; await insSave(x,"3 Termine vorgeschlagen"); insRender(); };
+    B.querySelectorAll("[data-sdel]").forEach(b=>b.onclick=async()=>{ x.slots=(x.slots||[]).filter(s=>s.dt!==b.dataset.sdel); await insSave(x); insRender(); });
+    $("#il_new").onclick=()=>insPerson(null);
+    B.querySelectorAll("[data-pedit]").forEach(b=>b.onclick=()=>insPerson(b.dataset.pedit));
+    B.querySelectorAll("[data-pst]").forEach(s=>s.onchange=async()=>{ const p=x.leute.find(q=>q.id===s.dataset.pst); if(p){ p.status=s.value; await insSave(x,"Status: "+s.value); insRender(); } });
+  }
+}
+/* Startseite: was ist bei Neuvermietungen fällig? */
+function insAttention(att){
+  const t=today();
+  list("wohnungen").filter(w=>inMyObj(w.objektId)).forEach(w=>{ const kd=kuendOfW(w.id), ins=insOf(w.id);
+    if(kd&&!ins) att.push({c:"warn",t:"Wohnung wird frei – Neuvermietung starten",s:`${wohnFull(w.id)} · ${kd.m.name} zieht aus zum ${fmtDate(kd.ende)}`,a:`<button class="btn sm" data-act="insOpen" data-w="${esc(w.id)}">Neuvermietung</button>`});
+    if(ins&&ins.status!=="Vermietet"){ const due=(ins.zeitplan||[]).filter(s=>!s.done&&s.d<=t); if(due.length) att.push({c:due.some(s=>s.d<t)?"bad":"warn",t:`Neuvermietung: ${due[0].t}`,s:`${wohnFull(w.id)} · fällig ${fmtDate(due[0].d)}${due.length>1?` · +${due.length-1} weitere`:""}`,a:`<button class="btn sm" data-act="insOpen" data-w="${esc(w.id)}">Öffnen</button>`}); }
+  });
+}
+Object.assign(ACT,{
+  dokAdd:d=>openDokAdd(d.o||st.objekt,d.k||""), dokOpen:d=>openDok(d.id), dokLink:d=>window.open(d.u,"_blank","noopener"), energieEdit:d=>openEnergie(d.o||st.objekt),
+  insOpen:d=>openInserat(d.w), insTab:d=>{ if(!INS) return; if(INS._tab==="anz") insReadAnz(INS); INS._tab=d.v; insRender(); },
+  insVertrag:()=>{ const x=INS; closeSheet(); openVertrag("miet",{wohnungId:x.wohnungId}); },
+  insProt:d=>{ const x=INS; closeSheet(); openProt(null,{art:d.v,objektId:x.objektId,wohnungId:x.wohnungId}); },
+  insHw:()=>{ const x=INS; closeSheet(); ACT.awNew({w:x.wohnungId,o:x.objektId}); },
+  insSelbst:d=>{ const x=INS, p=(x.leute||[]).find(q=>q.id===d.v)||{}, o=st.data.objekte[x.objektId]||{}; closeSheet(); openVertrag("selbst",{wohnungId:x.wohnungId,felder:{objAdr:o.adresse||"",lage:x.etage||"",kalt:x.kalt||"",mName:p.name||"",telefon:p.tel||"",email:p.mail||""}}); },
+  insMieter:async d=>{ const x=INS, p=(x.leute||[]).find(q=>q.id===d.v); if(!p) return; if(!await ask(`${p.name} als neuen Mieter anlegen und die Neuvermietung abschließen?`,"Übernehmen")) return;
+    x.status="Vermietet"; x.vermietetAn=p.name; x.vermietet=today(); const z=(x.zeitplan||[]).find(s=>s.k==="auswahl"); if(z) z.done=true; await insSave(x);
+    try{ await st.db.collection("wohnungen").doc(x.wohnungId).update({kalt:x.kalt??null,nk:x.nk??null}); }catch(e){}
+    closeSheet(); openForm("mieter",null,{name:p.name,telefon:p.tel||"",email:p.mail||"",wohnungId:x.wohnungId,objektId:x.objektId,beginn:x.freiAb||"",kalt:x.kalt??"",kaution:x.kaution??"",personen:p.personen??""}); }
+});
 
 /* ---------- Übergabe- / Rücknahmeprotokoll ---------- */
 const P_ZAEHLER=["Strom","Wasser kalt","Wasser warm","Gas","Heizung (Heizkostenverteiler)"];
@@ -4623,7 +5125,7 @@ fetch("logo-mark-dark.png").then(r=>r.ok?r.blob():null).then(b=>b&&blobToDataUrl
   const C=window.claude;
   if(!C||!C.use){ if(window.__webTts){ st.tts=window.__webTts; $("#ttsBtn").classList.remove("hide"); } st.noDb=true; render(); return; }
   const [db,assets,sample,dl,dict]=await Promise.all([C.use("db"),C.use("assets").catch(()=>null),C.use("sample").catch(()=>null),C.use("downloads").catch(()=>null),C.use("dictation").catch(()=>null)]);
-  st.assets=assets; st.sample=sample; st.dl=dl; st.dict=dict; if(dict) initDict(dict);
+  st.assets=assets; st.sample=sample; st.dl=dl; st.dict=dict||window.__webDict||null; if(st.dict) initDict(st.dict);
   $("#kiFab").classList.toggle("hide",!sample);
   st.tts=await C.use("tts").catch(()=>null); if(!st.tts&&window.__webTts) st.tts=window.__webTts; $("#ttsBtn").classList.toggle("hide",!st.tts); $("#ttsBtn").classList.toggle("on",!!st.speakHints);
   const user=await C.use("user").catch(()=>null); st.user=user;

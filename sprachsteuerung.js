@@ -1,8 +1,10 @@
 /* JoumHome – Sprachsteuerung
    1) Diktieren im Browser (Web Speech API), wenn Claudes Diktat fehlt (z. B. GitHub, Safari).
-   2) Mikrofon-Knopf „Sprechen“: Satz sagen → App erkennt die Aktion und öffnet das passende,
-      schon ausgefüllte Formular (Verstoß, Schaden, Ausgabe, Zählerstand, Mieteingang, Aushang,
-      Garten, Bereich öffnen). Gespeichert wird erst, wenn man selbst auf „Speichern/Senden“ tippt.
+   2) Mikrofon-Knopf „Sprechen“: Satz sagen → App erkennt die Aktion und SPEICHERT automatisch
+      (Verstoß, Schaden, Ausgabe, Zählerstand, Mieteingang, Aushang, Garten; Mieter: auch Anfragen
+      wie Bescheinigung, Stellplatz, Ratenzahlung, Zwischenzähler). 10 Sekunden „Rückgängig“.
+      Fehlt etwas Wichtiges, bleibt das Formular offen und die App fragt nur danach.
+      Verträge und Kündigungen werden vorbereitet (Unterschrift nötig).
    Mit Claude-KI wird der Satz von der KI verstanden, sonst über eingebaute Wortregeln. */
 (function(){
   /* ---------- 1) Browser-Diktat ---------- */
@@ -114,6 +116,17 @@
     var W = tenant ? {} : findeWohnung(t);
     var navigiere = /^(öffne|oeffne|zeig|zeige|geh|gehe|wechsel|wechsle|bring mich|zu den|zur|zum)\b/.test(t) || /\b(öffnen|oeffnen|anzeigen|zeigen)\b\s*$/.test(t);
     if (navigiere && !tenant){ for (var i = 0; i < NAV.length; i++) if (NAV[i][0].test(t)) return { aktion: "bereich", tab: NAV[i][1], name: NAV[i][2] }; }
+    if (tenant){
+      if (/mietbescheinigung|bescheinigung.*(jobcenter|wohngeld|amt)/.test(t)) return { aktion: "anfrage", art: "mietbesch", text: cap(orig) };
+      if (/wohnungsgeber|meldebescheinigung|bürgeramt|buergeramt|ummelden/.test(t)) return { aktion: "anfrage", art: "wgb", text: cap(orig) };
+      if (/(stellplatz|parkplatz|garage|carport|tiefgarage)/.test(t) && /(miet|brauch|möcht|moecht|hätte|haette|will|suche|anfrag)/.test(t)) return { aktion: "stellplatz", sArt: /tiefgarage/.test(t) ? "Tiefgaragenstellplatz" : /carport/.test(t) ? "Carport" : /garage/.test(t) ? "Garage" : "Außenstellplatz", text: cap(orig) };
+      if (/ratenzahlung|in raten|raten zahlen|ratenweise/.test(t)) return { aktion: "rate", rate: betrag(t) || zahl(t), text: cap(orig) };
+      if (/zwischenzähler|zwischenzaehler/.test(t)) return { aktion: "verbrauch", medium: /wasser/.test(t) && /strom/.test(t) ? "Strom und Wasser" : /wasser/.test(t) ? "Wasser (kalt und warm)" : "Strom" };
+      if (/kündig|kuendig/.test(t)) return { aktion: "kuendigung" };
+    } else if (/(vertrag|vereinbarung|bescheinigung|vollmacht|selbstauskunft|kündigung|kuendigung|aufhebung|bestätigung|bestaetigung)/.test(t) && /(mach|erstell|schreib|vorbereit|neu|brauch|für|fuer|aufsetz)/.test(t)){
+      var TPLR = [[/mietbescheinigung/, "mietbesch"], [/wohnungsgeber/, "wgb"], [/selbstauskunft/, "selbst"], [/vollmacht/, "vollm"], [/aufhebung/, "aufheb"], [/ratenzahlung|raten/, "rate"], [/zwischenzähler|zwischenzaehler|strom.*wasser/, "verbrauch"], [/stellplatz|garage|parkplatz|carport/, "stell"], [/hausmeister|reinigung/, "dienst"], [/handwerker|werkvertrag/, "hwauftrag"], [/anwalt|mandat/, "anwalt"], [/whatsapp|datenschutz|einwilligung/, "dsgvo"], [/mietvertrag/, "miet"]];
+      for (var q = 0; q < TPLR.length; q++) if (TPLR[q][0].test(t) && typeof VTPL === "object" && VTPL[TPLR[q][1]]) return Object.assign({ aktion: "vertrag", tpl: TPLR[q][1] }, W);
+    }
     if (/miete/.test(t) && /(bezahlt|gezahlt|eingegangen|überwiesen|ueberwiesen|erhalten|mieteingang)/.test(t) && !tenant) return Object.assign({ aktion: "mieteingang", bezahlt: betrag(t) || zahl(t) }, W);
     if (/zählerstand|zaehlerstand|zähler|zaehler/.test(t)){ var n = t.match(/(?:stand|steht auf|bei|ist)\s*(\d[\d.,]*)/); var stand = n ? Number(n[1].replace(/\.(?=\d{3})/g, "").replace(",", ".")) : zahl(t.replace(/\b\d{1,2}\.\s?og\b/g, "")); return Object.assign({ aktion: "zaehler", art: zaehlerArt(t), stand: stand }, W); }
     if (/versto(ss|ß)|hausordnung|biomüll|biomuell|restmüll|tonne|ruhezeit|lärm|laerm|zu laut|sperrmüll|zugestellt|kehrwoche (nicht|wieder)|nicht geputzt|müll (im|in|neben)/.test(t)) return Object.assign({ aktion: "verstoss", art: verstossArt(t), prio: prio, text: cap(orig) }, W);
@@ -132,8 +145,8 @@
     var ws = tenant ? "" : wohnungen().map(function(x){ return x.w.id + " = " + (x.o.name || x.w.objektId) + ", " + (x.w.lage || "") + (x.m ? ", Mieter " + x.m.name : ", leer"); }).join("\n");
     var ob = tenant ? "" : list("objekte").map(function(o){ return o.id + " = " + (o.name || "") + (o.adresse ? " (" + o.adresse + ")" : ""); }).join("\n");
     var aktionen = tenant
-      ? 'schaden {text, prio}; verstoss {art, text}; zaehler {art, stand}; aushang {art, text, preis}; garten {datum, von, bis, anlass}; unklar {}'
-      : 'verstoss {wohnungId, art, prio, text}; schaden {wohnungId, prio, text}; ausgabe {objektId, wohnungId, betrag, kategorie, haendler, text}; zaehler {wohnungId, art, stand}; mieteingang {wohnungId, bezahlt}; aushang {objektId, art, text, preis}; garten {objektId, wohnungId, datum, von, bis, anlass}; bereich {tab} (tab: start|haeuser|hw|geld|tickets|gemein); unklar {}';
+      ? 'schaden {text, prio}; verstoss {art, text}; zaehler {art, stand}; aushang {art, text, preis}; garten {datum, von, bis, anlass}; anfrage {art: mietbesch|wgb, text}; stellplatz {sArt: Außenstellplatz|Tiefgaragenstellplatz|Garage|Carport, beginn, kennz, text}; rate {rate, ersteRate, text}; verbrauch {medium: Strom|Wasser (kalt und warm)|Strom und Wasser}; kuendigung {}; unklar {}'
+      : 'verstoss {wohnungId, art, prio, text}; schaden {wohnungId, prio, text}; ausgabe {objektId, wohnungId, betrag, kategorie, haendler, text}; zaehler {wohnungId, art, stand}; mieteingang {wohnungId, bezahlt}; aushang {objektId, art, text, preis}; garten {objektId, wohnungId, datum, von, bis, anlass}; vertrag {tpl, wohnungId} (tpl genau eins von: ' + (typeof VTPL === "object" ? Object.keys(VTPL).map(function(k){ return k + "=" + VTPL[k].t; }).join(", ") : "") + '); bereich {tab} (tab: start|haeuser|hw|geld|tickets|gemein); unklar {}';
     var p = "Du übersetzt einen gesprochenen Satz in eine Aktion der Vermieter-App JoumHome. Antworte NUR mit einem JSON-Objekt, ohne weiteren Text.\n"
       + "Heute ist " + today() + ". Rolle: " + (tenant ? "Mieter" : "Vermieter") + ".\n"
       + "Aktionen mit Feldern: " + aktionen + "\n"
@@ -160,11 +173,31 @@
   function setM(k, v){ if (v == null || v === "") return; var el = document.getElementById("m_" + k); if (!el) return; if (el.type === "checkbox") el.checked = !!v; else el.value = v; }
   var clean = function(o){ var r = {}; for (var k in o) if (o[k] != null && o[k] !== "") r[k] = o[k]; return r; };
 
-  function ausfuehren(a){
+  /* ---- automatisch speichern + Rückgängig ---- */
+  var NEED = {
+    verstoss: ["wohnungId", "art"], schaden: ["wohnungId", "text"], ausgabe: ["betrag", "objektId", "kategorie"], zaehler: ["wohnungId", "stand", "art"],
+    mieteingang: ["wohnungId", "bezahlt"], aushang: ["objektId", "text", "art"], garten: ["objektId", "wohnungId", "datum", "von", "bis"]
+  };
+  var NEED_M = { schaden: ["text"], verstoss: ["art"], zaehler: ["art", "stand"], brett: ["art", "text"], garten: ["datum", "von", "bis"], anfrage: ["art"], vstell: ["sArt"], vrate: ["rate"], vverbr: ["medium"] };
+  var NAMEN = { wohnungId: "die Wohnung", objektId: "das Haus", text: "die Beschreibung", art: "die Art", betrag: "den Betrag", kategorie: "die Kategorie", stand: "den Zählerstand", bezahlt: "den Betrag", datum: "das Datum", von: "die Uhrzeit von", bis: "die Uhrzeit bis", rate: "die Monatsrate", sArt: "Stellplatz oder Garage", medium: "Strom oder Wasser" };
+  var TITEL = { verstoesse: "Verstoß", schaeden: "Schaden", ausgaben: "Ausgabe", zaehler: "Zählerstand", zahlungen: "Mieteingang", brett: "Aushang", garten: "Garten-Reservierung" };
+  var undoT = null;
+  function undoBar(text, undoFn){
+    var u = document.getElementById("vcUndo"); if (!u){ u = document.createElement("div"); u.id = "vcUndo"; document.body.appendChild(u); }
+    var left = 10; clearInterval(undoT);
+    function draw(){ u.innerHTML = '<span>✓ ' + esc(text) + '</span><button type="button" id="vcUndoB">Rückgängig (' + left + ')</button>'; var bb = document.getElementById("vcUndoB"); if (bb) bb.onclick = async function(){ clearInterval(undoT); u.classList.remove("show"); try { await undoFn(); toast("Rückgängig gemacht"); } catch(e){ toast("Rückgängig nicht mehr möglich"); } }; }
+    draw(); u.classList.add("show");
+    undoT = setInterval(function(){ left--; if (left <= 0){ clearInterval(undoT); u.classList.remove("show"); return; } draw(); }, 1000);
+  }
+  function sprich(msg){ toast(msg); try { if (st.tts && st.speakHints !== false) say(msg); } catch(e){} }
+  var warte = function(ms){ return new Promise(function(r){ setTimeout(r, ms); }); };
+
+  async function ausfuehren(a){
     var tenant = isTenant(), msg = "";
     if (a.aktion === "bereich"){ closeSheet(); ACT.tab({ tab: a.tab }); toast((a.name || "Bereich") + " geöffnet"); return true; }
     if (tenant){
-      var map = { schaden: "schaden", verstoss: "verstoss", zaehler: "zaehler", aushang: "brett", garten: "garten" };
+      if (a.aktion === "kuendigung"){ closeSheet(); if (typeof openMKuend === "function") openMKuend(); sprich("Die Kündigung braucht deine Unterschrift. Bitte Formular prüfen und unterschreiben."); return true; }
+      var map = { schaden: "schaden", verstoss: "verstoss", zaehler: "zaehler", aushang: "brett", garten: "garten", anfrage: "anfrage", stellplatz: "vstell", rate: "vrate", verbrauch: "vverbr" };
       var typ = map[a.aktion]; if (!typ) return false;
       openMForm(typ); banner();
       if (typ === "schaden"){ setM("text", a.text); setM("dringend", a.prio === "Dringend"); }
@@ -172,38 +205,72 @@
       if (typ === "zaehler"){ setM("art", a.art); setM("stand", a.stand); }
       if (typ === "brett"){ setM("art", a.art === "Info vom Vermieter" ? "Sonstiges" : a.art); setM("text", a.text); setM("preis", a.preis); }
       if (typ === "garten"){ setM("datum", a.datum); setM("von", a.von); setM("bis", a.bis); setM("anlass", a.anlass); }
-      msg = "Ich habe das Formular ausgefüllt. Bitte prüfen und auf Senden tippen.";
-    } else {
-      var w = a.wohnungId && st.data.wohnungen[a.wohnungId]; if (w && !a.objektId) a.objektId = w.objektId;
-      if (a.aktion === "verstoss") openForm("verstoesse", null, clean({ wohnungId: a.wohnungId, art: a.art || "Sonstiges", prio: a.prio, notiz: a.text, quelle: "Selbst festgestellt" }));
-      else if (a.aktion === "schaden") openForm("schaeden", null, clean({ wohnungId: a.wohnungId, beschreibung: a.text, prio: a.prio }));
-      else if (a.aktion === "ausgabe") openForm("ausgaben", null, clean({ betrag: a.betrag, objektId: a.objektId, wohnungId: a.wohnungId, kategorie: a.kategorie, haendler: a.haendler, beschreibung: a.text }));
-      else if (a.aktion === "zaehler") openForm("zaehler", null, clean({ wohnungId: a.wohnungId, art: a.art, stand: a.stand }));
-      else if (a.aktion === "mieteingang") openForm("zahlungen", null, clean({ wohnungId: a.wohnungId, bezahlt: a.bezahlt, eingang: today(), monat: curYm() }));
-      else if (a.aktion === "aushang") openForm("brett", null, clean({ objektId: a.objektId, art: a.art, text: a.text, preis: a.preis }));
-      else if (a.aktion === "garten") openForm("garten", null, clean({ objektId: a.objektId, wohnungId: a.wohnungId, datum: a.datum, von: a.von, bis: a.bis, anlass: a.anlass }));
-      else return false;
-      banner();
-      var fehlt = [];
-      if (/verstoss|schaden|zaehler|mieteingang/.test(a.aktion) && !a.wohnungId) fehlt.push("die Wohnung");
-      if (a.aktion === "ausgabe" && !a.betrag) fehlt.push("den Betrag");
-      if (a.aktion === "zaehler" && !a.stand) fehlt.push("den Zählerstand");
-      msg = fehlt.length ? "Formular ausgefüllt. Bitte noch " + fehlt.join(" und ") + " auswählen, dann speichern." : "Formular ausgefüllt. Bitte prüfen und speichern.";
+      if (typ === "anfrage"){ setM("art", a.art); setM("text", a.text && a.text.length < 120 ? a.text : ""); }
+      if (typ === "vstell"){ setM("sArt", a.sArt); setM("beginn", a.beginn); setM("kennz", a.kennz); }
+      if (typ === "vrate"){ setM("rate", a.rate); setM("ersteRate", a.ersteRate); setM("text", a.text); }
+      if (typ === "vverbr"){ setM("medium", a.medium); }
+      var vals = { text: a.text, art: a.art, stand: a.stand, datum: a.datum, von: a.von, bis: a.bis, sArt: a.sArt, rate: a.rate, medium: a.medium };
+      if (typ === "brett" && !vals.art) vals.art = "Sonstiges";
+      var fehltM = (NEED_M[typ] || []).filter(function(k){ var el = document.getElementById("m_" + k); return vals[k] == null || vals[k] === "" || (el && !el.value); });
+      if (fehltM.length || st.preview){ sprich(st.preview ? "Vorschau – es wird nichts gesendet." : "Bitte noch " + fehltM.map(function(k){ return NAMEN[k] || k; }).join(" und ") + " ergänzen, dann senden."); return true; }
+      window.__jhLastM = null; window.__jhVoice = true;
+      var sb = document.getElementById("mSend"); if (sb) sb.click();
+      for (var i = 0; i < 40 && !window.__jhLastM && document.getElementById("mSend"); i++) await warte(200);
+      window.__jhVoice = false;
+      var mid = window.__jhLastM;
+      if (mid){
+        var tt = MFORM[typ] ? MFORM[typ].t : "Meldung";
+        undoBar(tt + " gesendet", async function(){ var cur = st.ein || {}; var it = (cur.items || []).find(function(x){ return x.id === mid; }); var p = pm(); if (!it || (p && p.done && p.done[mid])) throw new Error("schon übernommen"); await einSave({ items: (cur.items || []).filter(function(x){ return x.id !== mid; }) }); render(); });
+        try { if (st.tts && st.speakHints !== false) say(tt + " gesendet."); } catch(e){}
+      }
+      return true;
     }
-    toast(msg); try { if (st.tts && st.speakHints !== false) say(msg); } catch(e){}
+    var w = a.wohnungId && st.data.wohnungen[a.wohnungId]; if (w && !a.objektId) a.objektId = w.objektId;
+    if (a.aktion === "vertrag"){
+      closeSheet(); var m0 = a.wohnungId ? mieterOf(a.wohnungId) : null;
+      openVertrag(a.tpl, clean({ wohnungId: a.wohnungId, mieterId: m0 && m0.id }));
+      var T0 = VTPL[a.tpl], fehltV = [];
+      try { fehltV = T0.f.filter(function(f){ return f.req && (VF.v[f.k] == null || VF.v[f.k] === ""); }).map(function(f){ return f.l; }); } catch(e){}
+      if (!fehltV.length && typeof vertragVorschau === "function"){ vertragVorschau(); sprich(T0.t + " ist fertig. Bitte die Übersicht prüfen und unterschreiben – oder an die Mieter-App senden."); }
+      else sprich(T0.t + " vorbereitet. Bitte noch " + fehltV.join(", ") + " eintragen.");
+      return true;
+    }
+    var col = null;
+    if (a.aktion === "verstoss"){ col = "verstoesse"; openForm(col, null, clean({ wohnungId: a.wohnungId, art: a.art || "Sonstiges", prio: a.prio, notiz: a.text, quelle: "Selbst festgestellt" })); }
+    else if (a.aktion === "schaden"){ col = "schaeden"; openForm(col, null, clean({ wohnungId: a.wohnungId, beschreibung: a.text, prio: a.prio })); }
+    else if (a.aktion === "ausgabe"){ col = "ausgaben"; openForm(col, null, clean({ betrag: a.betrag, objektId: a.objektId, wohnungId: a.wohnungId, kategorie: a.kategorie, haendler: a.haendler, beschreibung: a.text })); }
+    else if (a.aktion === "zaehler"){ col = "zaehler"; openForm(col, null, clean({ wohnungId: a.wohnungId, art: a.art, stand: a.stand })); }
+    else if (a.aktion === "mieteingang"){ col = "zahlungen"; openForm(col, null, clean({ wohnungId: a.wohnungId, bezahlt: a.bezahlt, eingang: today(), monat: curYm() })); }
+    else if (a.aktion === "aushang"){ col = "brett"; openForm(col, null, clean({ objektId: a.objektId, art: a.art, text: a.text, preis: a.preis })); }
+    else if (a.aktion === "garten"){ col = "garten"; openForm(col, null, clean({ objektId: a.objektId, wohnungId: a.wohnungId, datum: a.datum, von: a.von, bis: a.bis, anlass: a.anlass })); }
+    else return false;
+    banner();
+    if (a.aktion === "verstoss" && !a.art) a.art = "Sonstiges";
+    if (a.aktion === "aushang" && !a.art) a.art = "Info vom Vermieter";
+    if (a.aktion === "ausgabe" && !a.kategorie) a.kategorie = "Sonstiges";
+    var fehlt = (NEED[a.aktion] || []).filter(function(k){ return a[k] == null || a[k] === ""; });
+    if (fehlt.length){ sprich("Bitte noch " + fehlt.map(function(k){ return NAMEN[k] || k; }).join(" und ") + " auswählen, dann speichern."); return true; }
+    window.__jhLast = null;
+    await saveForm();
+    var L = window.__jhLast;
+    if (!L || L.col !== col){ sprich("Bitte das Formular noch ergänzen und speichern."); return true; }
+    var d = st.data[col] && st.data[col][L.id];
+    var tx = TITEL[col] + (L.nr ? " #" + L.nr : "") + " gespeichert" + (a.wohnungId ? " · " + wohnFull(a.wohnungId) : (a.objektId ? " · " + objName(a.objektId) : ""));
+    undoBar(tx, async function(){ await st.db.collection(L.col).doc(L.id).delete(); closeSheet(); render(); });
+    try { if (st.tts && st.speakHints !== false) say(TITEL[col] + " gespeichert."); } catch(e){}
     return true;
   }
 
   function beispiele(){
     return isTenant()
-      ? ["Die Heizung im Bad bleibt kalt, dringend", "Biomüll war wieder im Restmüll", "Mein Stromzähler steht auf 12345", "Garten reservieren am Samstag von 14 bis 18 Uhr"]
-      : ["Verstoß Musterstraße 1 EG links: Biomüll im Restmüll", "Schaden bei Demir, Wasserhahn tropft", "Ausgabe 84,90 Euro bei Obi für Silikon", "Zählerstand Strom 1. OG 12345", "Miete von Mustermann 830 Euro bezahlt", "Öffne Finanzen"];
+      ? ["Die Heizung im Bad bleibt kalt, dringend", "Biomüll war wieder im Restmüll", "Mein Stromzähler steht auf 12345", "Ich brauche eine Mietbescheinigung fürs Jobcenter", "Ich möchte einen Stellplatz mieten", "Garten reservieren am Samstag von 14 bis 18 Uhr"]
+      : ["Verstoß Musterstraße 1 EG links: Biomüll im Restmüll", "Schaden bei Demir, Wasserhahn tropft", "Ausgabe 84,90 Euro bei Obi für Silikon", "Zählerstand Strom 1. OG 12345", "Miete von Mustermann 830 Euro bezahlt", "Mietbescheinigung für EG erstellen", "Öffne Finanzen"];
   }
 
   function sheetHtml(){
     var micOk = !!st.dict;
     return '<div class="spread"><h2>Sprechen</h2><button class="btn sm ghost" data-act="close">Schließen</button></div>'
-      + '<div class="small">' + (micOk ? "Tippe auf das Mikrofon und sag einfach, was du erledigen möchtest. Ich öffne das passende Formular schon ausgefüllt." : "Spracheingabe ist in diesem Browser nicht verfügbar (am besten Chrome, Edge oder Safari). Du kannst den Satz aber hier eintippen.") + '</div>'
+      + '<div class="small">' + (micOk ? "Sag einfach, was passiert ist. Ich speichere es automatisch – 10 Sekunden lang kannst du es rückgängig machen. Verträge bereite ich vor." : "Spracheingabe ist in diesem Browser nicht verfügbar (am besten Chrome, Edge oder Safari). Du kannst den Satz aber hier eintippen.") + '</div>'
       + (micOk ? '<div style="display:flex;justify-content:center;margin:14px 0 6px"><button type="button" class="mic vc-big" data-act="vcMic" data-target="vcTxt" aria-label="Sprechen">' + MIC_SVG + '</button></div>' : "")
       + '<div class="small mic-live" id="vcTxt_live" style="text-align:center;min-height:18px"></div>'
       + '<div class="field full"><textarea id="vcTxt" class="fx" rows="2" placeholder="z. B. ' + esc(beispiele()[0]) + '"></textarea></div>'
@@ -239,7 +306,7 @@
       var a = await perKi(text);
       if (!a || a.aktion === "unklar") { var r = regeln(text); if (r.aktion !== "unklar" || !a) a = r; }
       clearInterval(watch);
-      if (!ausfuehren(a)){
+      if (!(await ausfuehren(a))){
         if (out) out.innerHTML = '<div class="note warn" style="margin-top:8px">Das habe ich nicht verstanden. Sag z. B. „Verstoß …“, „Schaden …“, „Ausgabe … Euro“ oder „Zählerstand …“.'
           + (st.sample ? ' <button class="btn sm" data-act="vcKi">Stattdessen KI-Assistent fragen</button>' : "") + '</div>';
         try { if (st.tts) say("Das habe ich nicht verstanden. Bitte noch einmal anders sagen."); } catch(e){}
@@ -259,6 +326,7 @@
     var css = document.createElement("style");
     css.textContent = "#vcFab{bottom:calc(156px + env(safe-area-inset-bottom))}body.hasS #vcFab{bottom:calc(204px + env(safe-area-inset-bottom))}#kiFab.hide~#vcFab{bottom:calc(92px + env(safe-area-inset-bottom))}body.hasS #kiFab.hide~#vcFab{bottom:calc(140px + env(safe-area-inset-bottom))}"
       + ".vc-big{position:static!important;inset:auto!important;transform:none!important;width:84px!important;height:84px!important;border-radius:50%!important;display:grid!important;place-items:center;background:var(--hi)!important;color:var(--hi-ink)!important;border:0!important;cursor:pointer}.vc-big.rec{background:#e5484d!important;color:#fff!important}.vc-big svg{width:38px;height:38px}"
+      + "#vcUndo{position:fixed;left:50%;transform:translateX(-50%) translateY(140%);bottom:calc(92px + env(safe-area-inset-bottom));z-index:9999;display:flex;align-items:center;gap:12px;width:min(520px,92vw);box-sizing:border-box;background:var(--ink);color:var(--bg);border-radius:14px;padding:10px 12px 10px 16px;font-size:14px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.35);transition:transform .25s}#vcUndo.show{transform:translateX(-50%) translateY(0)}#vcUndo span{flex:1;min-width:0}#vcUndo button{flex:none;border:0;border-radius:10px;padding:8px 12px;font:inherit;font-weight:700;background:var(--bg);color:var(--ink);cursor:pointer}"
       + ".vc-big.rec{animation:vcPuls 1.2s ease-in-out infinite}@keyframes vcPuls{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.45)}50%{box-shadow:0 0 0 16px rgba(255,255,255,0)}}";
     document.head.appendChild(css);
     var kf = document.getElementById("kiFab");
@@ -273,7 +341,7 @@
       vcEx: function(d){ var t = document.getElementById("vcTxt"); if (t){ t.value = d.q; los(); } },
       vcKi: function(){ var t = document.getElementById("vcTxt"); var q = t ? t.value : ""; closeSheet(); openChat(); var c = document.getElementById("chatTxt"); if (c){ c.value = q; sendChat(); } }
     });
-    if (typeof HINT2 === "object") HINT2.vcOpen = ["Sprechen", "Sag einfach, was du tun möchtest – z. B. einen Verstoß oder Schaden melden. Das Formular wird automatisch ausgefüllt."];
+    if (typeof HINT2 === "object") HINT2.vcOpen = ["Sprechen", "Sag einfach, was du tun möchtest – z. B. einen Verstoß oder Schaden melden. Die App speichert es automatisch; 10 Sekunden lang kannst du es rückgängig machen."];
     setInterval(knopfZeigen, 700); knopfZeigen();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();

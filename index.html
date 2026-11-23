@@ -118,6 +118,17 @@ dl.kv dt{color:var(--muted)} dl.kv dd{margin:0}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .fields .full{grid-column:1/-1}
 @media(max-width:420px){.fields{grid-template-columns:1fr}}
+.posbox{display:flex;flex-direction:column;gap:6px;padding:12px}
+.posrow{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:13.5px;cursor:pointer}
+.posrow input{margin-top:2px;width:18px;height:18px;flex:none;accent-color:var(--ink)}
+.posrow .pt{flex:1;min-width:0}
+.posrow .pt small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}
+.posrow .num{white-space:nowrap;font-weight:600}
+.posrow.priv .pt b{text-decoration:line-through;opacity:.6}
+.posrow.priv .num{opacity:.75}
+.possum{display:flex;flex-direction:column;gap:3px;border-top:1px solid var(--line);padding-top:8px;font-size:13px}
+.possum div{display:flex;justify-content:space-between}
+.possum .tot{font-weight:700;font-size:14.5px}
 .ai{display:flex;gap:10px;align-items:center;background:var(--accent-soft);color:var(--accent);border-radius:12px;padding:10px 12px;font-size:13.5px;font-weight:600}
 .spin{width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp 0.8s linear infinite;flex:none}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -462,7 +473,7 @@ const KTR = ["Vermieter","Mieter (verursacht)"];
 const isMK = a => a.kostentraeger==="Mieter (verursacht)";
 const PRIO = ["Normal","Dringend"];
 const QUELLE = ["Mieter per WhatsApp","Mieter per Telefon","Mieter persönlich","Selbst festgestellt","Hausmeister / Nachbar"];
-const COLS = ["objekte","wohnungen","mieter","ausgaben","verstoesse","zahlungen","zaehler","schaeden","reinigung","brett","garten","medien","protokolle","rollen","speedtests","vertraege","portal","eingang","anfragen","nachrichten","inventar","fixkosten","handwerker","auftraege","mahnungen","hwportal","hweingang","dokumente","inserate"];
+const COLS = ["objekte","wohnungen","mieter","ausgaben","verstoesse","zahlungen","zaehler","schaeden","reinigung","brett","garten","medien","protokolle","rollen","speedtests","vertraege","portal","eingang","anfragen","nachrichten","inventar","fixkosten","handwerker","auftraege","mahnungen","hwportal","hweingang","dokumente","inserate","wartung","begehungen","nkabr"];
 
 /* ---------- Zustand ---------- */
 const st = {
@@ -708,7 +719,7 @@ async function logT(col,id,text,extra={}){
 const SCH = {
   objekte:{t:"Objekt", f:[
     {k:"name",l:"Bezeichnung",t:"text",req:1,full:1},{k:"adresse",l:"Adresse",t:"text",full:1},
-    {k:"garten",l:"Gemeinschaftsgarten vorhanden",t:"bool",full:1},{k:"notiz",l:"Notizen",t:"textarea",full:1}]},
+    {k:"garten",l:"Gemeinschaftsgarten vorhanden",t:"bool",full:1},{k:"mietspiegel",l:"Ortsübliche Vergleichsmiete €/m² (Mietspiegel)",t:"number"},{k:"mietspiegelQuelle",l:"Quelle (z. B. Mietspiegel Bad Salzuflen 2026, Feld B3)",t:"text"},{k:"kappung15",l:"Gebiet mit abgesenkter Kappungsgrenze (15 %)",t:"bool",full:1},{k:"notiz",l:"Notizen",t:"textarea",full:1}]},
   wohnungen:{t:"Wohnung", f:[
     {k:"objektId",l:"Objekt",t:"objekt",req:1},{k:"lage",l:"Lage (z. B. EG links)",t:"text"},
     {k:"flaeche",l:"Fläche m²",t:"number"},{k:"zimmer",l:"Zimmer",t:"number"},
@@ -719,6 +730,7 @@ const SCH = {
     {k:"name",l:"Name",t:"text",req:1,full:1},{k:"wohnungId",l:"Wohnung",t:"wohnung",req:1,full:1},
     {k:"telefon",l:"Telefon (WhatsApp)",t:"tel"},{k:"sprache",l:"Sprache des Mieters",t:"selectkv",o:LANGS},{k:"email",l:"E-Mail",t:"email"},
     {k:"beginn",l:"Mietbeginn",t:"date"},{k:"personen",l:"Personen",t:"number"},
+    {k:"mietart",l:"Mietart",t:"select",o:["Standard","Index","Staffel"]},{k:"letzteErhoehung",l:"Letzte Mieterhöhung am",t:"date"},{k:"vpiBasis",l:"Index-Stand bei letzter Anpassung (nur Indexmiete)",t:"number"},{k:"auszug",l:"Auszug am (falls bekannt)",t:"date"},
     {k:"kalt",l:"Kaltmiete laut Vertrag €",t:"number"},{k:"kaution",l:"Kaution €",t:"number"},
     {k:"kautionGezahlt",l:"Kaution bezahlt €",t:"number"},{k:"vertragAsset",l:"Mietvertrag (PDF)",t:"pdf",full:1},
     {k:"iban",l:"IBAN des Mieters (für Bankabgleich)",t:"text",full:1},{k:"waOk",l:"Einwilligung WhatsApp-Kontakt liegt vor",t:"bool",full:1},
@@ -1413,6 +1425,7 @@ function vertragVorschau(){
   const T=VTPL[VF.k], txt=T.text(VF.v);
   const SG=T.signer?T.signer(VF.v):(T.nurMieter?"M":T.einseitig?"V":"VM"), E=SG==="V", N=SG==="M";
   openSheet(`<div class="spread"><h2>${esc(T.t)}</h2><button class="btn sm ghost" id="vtBack">‹ Daten ändern</button></div>
+  ${typeof vtSumHtml==="function"?vtSumHtml(VF.k,VF.v):""}
   <div class="card" style="flex:none;min-height:160px;max-height:44vh;overflow:auto;white-space:pre-wrap;font-size:13.5px;line-height:1.55;background:var(--deep)">${esc(txt)}</div>
   <div class="fields"><div class="field"><label for="vtOrt">Ort</label><input id="vtOrt" type="text" value="${esc(VF.v.ort||st.cfg?.ort||"")}"></div><div class="field"><label for="vtDat">Datum</label><input id="vtDat" type="date" value="${today()}"></div></div>
   <section class="card" style="display:flex;flex-direction:column;gap:10px"><h3>Digital unterschreiben</h3>
@@ -1420,7 +1433,8 @@ function vertragVorschau(){
    ${E?"":`<div class="field"><label>${VF.k==="dienst"?"Auftragnehmer":(T.sigLabel||"Mieter")}: ${esc(VF.v.mName||"")}</label><canvas class="sig" id="sigM"></canvas><button class="btn sm ghost" id="sigMc">Löschen</button></div>`}
    <div class="field chk"><input type="checkbox" id="vtOk"><label for="vtOk">${T.ok?T.ok(VF.v):N?"Der Mieter kündigt hiermit selbst und bestätigt die Angaben.":E?"Ich bestätige die Richtigkeit der Angaben.":"Beide Seiten haben den Vertrag gelesen und sind einverstanden."}</label></div>
    <div class="small">Mit dem Finger im Feld unterschreiben, am besten gemeinsam vor Ort auf einem Gerät.</div></section>
-  <div class="row end"><button class="btn" id="vtDraft">Als Entwurf speichern (PDF zum Drucken)</button><button class="btn pri" id="vtSign">Unterschreiben & speichern</button></div>`);
+  ${!E&&!N&&VF.mieterId&&typeof vtRemote==="function"?`<div class="note info">Mieter nicht vor Ort? Unterschreibe (optional) oben als Vermieter und schick den Vertrag in die App von ${esc(st.data.mieter[VF.mieterId]?.name||"dem Mieter")}. Er sieht eine Kurz-Übersicht, unterschreibt – und du siehst es auf Start.</div>`:""}
+  <div class="row end"><button class="btn" id="vtDraft">Als Entwurf speichern (PDF zum Drucken)</button>${!E&&!N&&VF.mieterId&&typeof vtRemote==="function"?`<button class="btn" id="vtRemote">An Mieter-App zur Unterschrift</button>`:""}<button class="btn pri" id="vtSign">Unterschreiben & speichern</button></div>`);
   let pV,pM; setTimeout(()=>{ if(!N) pV=sigPad($("#sigV")); if(!E) pM=sigPad($("#sigM")); },60);
   if(!N) $("#sigVc").onclick=()=>pV?.clear(); if(!E) $("#sigMc").onclick=()=>pM?.clear();
   $("#vtBack").onclick=()=>openVertrag(VF.k,{mieterId:VF.mieterId,felder:VF.v,id:VF.id,anfrageId:VF.anfrageId});
@@ -1444,10 +1458,11 @@ function vertragVorschau(){
     }catch(e){ console.error(e); toast("Speichern fehlgeschlagen"); b1.disabled=b2.disabled=false; b1.textContent="Unterschreiben & speichern"; }
   };
   $("#vtSign").onclick=()=>go(true); $("#vtDraft").onclick=()=>go(false);
+  const vrB=$("#vtRemote"); if(vrB) vrB.onclick=()=>vtRemote({txt,SG,pV});
 }
 async function vertragPdf(titel,txt,ort,dat,v,svB,smB,who){
   const {jsPDF}=window.jspdf; const d=new jsPDF({unit:"mm",format:"a4"}); let y=22;
-  if(st.logoDu){ try{ d.addImage(st.logoDu,"PNG",172,10,16,18.3); }catch(e){} }
+  jhLogo(d,172,10,16,18.3);
   d.setFont("helvetica","bold"); d.setFontSize(15); d.text(titel,20,y); y+=10;
   d.setFont("helvetica","normal"); d.setFontSize(10.5);
   for(const para of txt.split("\n")){
@@ -1460,7 +1475,7 @@ async function vertragPdf(titel,txt,ort,dat,v,svB,smB,who){
   d.setFont("helvetica","normal"); d.text(`${ort||"________"}, den ${fmtDate(dat)}`,20,y); y+=8;
   const toDu=b=>b?blobToDataUrl(b):null; const [a,b]=await Promise.all([toDu(svB),toDu(smB)]);
   (who==="M"?[[b,v.mName,titel==="Mieterselbstauskunft"?"Mietinteressent":"Mieter"]]:who==="V"?[[a,v.vName,titel==="Wohnungsgeberbestätigung"?"Wohnungsgeber":"Vermieter"]]:who==="VM"?[[a,v.vName,"Vermieter"],[b,v.mName,"Mieter"]]:VTPL[Object.keys(VTPL).find(k=>VTPL[k].t===titel)]?.nurMieter?[[b,v.mName,"Mieter"]]:VTPL[Object.keys(VTPL).find(k=>VTPL[k].t===titel)]?.einseitig?[[a,v.vName,titel==="Wohnungsgeberbestätigung"?"Wohnungsgeber":"Vermieter"]]:[[a,v.vName,"Vermieter"],[b,v.mName,"Mieter"]]).forEach(([du,name,rolle],i)=>{ const x=20+i*90; if(du){ try{ d.addImage(du,"PNG",x,y,70,25); }catch(e){} } d.line(x,y+27,x+70,y+27); d.setFontSize(9); d.text(`${name||""} (${rolle})`,x,y+32); });
-  d.setFontSize(8); d.setTextColor(120); d.text(`Erstellt mit JoumHome · ${fmtDate(today())}${svB?" · digital unterschrieben":""}`,20,290);
+  d.setFontSize(8); d.setTextColor(120); d.__footNote=`Erstellt mit JoumHome · ${fmtDate(today())}${svB?" · digital unterschrieben":""}`;
   return d.output("blob");
 }
 const VGRUPPEN=[["Vor dem Mietvertrag",["selbst"]],["Mietverhältnis",["miet","kuendM","aufheb"]],["Bescheinigungen",["mietbesch","wgb"]],["Zusatzverträge",["stell","verbrauch","rate"]],["Handwerker & Anwalt",["hwauftrag","dienst","anwalt"]],["Sonstiges",["vollm","dsgvo"]]];
@@ -1514,7 +1529,7 @@ function buildPortal(m){
     vermieter:{name:cf.name||"",adresse:cf.adresse||"",telefon:cf.telefon||"",email:cf.email||"",iban:cf.iban||"",bank:cf.bank||""},
     settings:{stumm:!!m.stumm,markt:m.markt!==false,feiern:m.feiern!==false},
     msgs:list("nachrichten").filter(n=>n.mieterId===m.id).sort((a,b)=>String(a.datum).localeCompare(String(b.datum))).slice(-100).map(n=>({id:n.id,von:n.von,text:n.text||"",betreff:n.betreff||"",wichtig:!!n.wichtig,datum:n.datum,foto:n.foto||""})),
-    tickets:tk,done,docs,anfragen:anf,kw,zaehler:zl};
+    tickets:tk,done,docs,anfragen:anf,kw,zaehler:zl,zuSign:typeof vtZuSign==="function"?vtZuSign(m):[]};
 }
 let portalT=null;
 function syncPortals(){ if(!isAdmin()||!st.loaded||st.noDb||!st.db) return; clearTimeout(portalT); portalT=setTimeout(syncPortalsNow,1500); }
@@ -1530,6 +1545,7 @@ async function syncPortalsNow(){
     await st.db.collection("portal").doc(m.userId).set({...p,aktiv:true,stand:new Date().toISOString()}).catch(e=>console.warn("portal",e));
   }
   await processEingang();
+  if(typeof vtRetry==="function") await vtRetry();
   await syncHwPortalsNow().catch(e=>console.warn("hw",e));
 }
 let procBusy=false;
@@ -1541,10 +1557,11 @@ async function processEingang(){
       const w=wohn(m.wohnungId), oid=w?.objektId||"";
       for(const it of (e.items||[])){
         if(!it||!it.id) continue; const did="app-"+it.id;
+        if(it.typ==="signatur"){ try{ if(typeof vtSigIn==="function") await vtSigIn(m,it); }catch(err){ console.warn("signatur",err); } continue; }
         const base={eingangId:it.id,eingangVon:uid};
         const col={schaden:"schaeden",verstoss:"verstoesse",zaehler:"zaehler",garten:"garten",brett:"brett",anfrage:"anfragen",antwort:"nachrichten",kuendigung:"vertraege",dokument:"vertraege"}[it.typ]; if(!col||st.data[col]?.[did]) continue;
         let doc=null;
-        if(it.typ==="schaden") doc={nr:nextNr(),datum:it.datum||today(),wohnungId:m.wohnungId,beschreibung:it.text||"",status:"Gemeldet",prio:it.dringend?"Dringend":"Normal",quelle:"Mieter über App",gemeldetVon:m.name,fotoAsset:it.foto||null};
+        if(it.typ==="schaden") doc={nr:nextNr(),datum:it.datum||today(),wohnungId:m.wohnungId,beschreibung:it.text||"",status:"Gemeldet",prio:it.dringend?"Dringend":"Normal",quelle:"Mieter über App",gemeldetVon:m.name,fotoAsset:it.foto||null,...(it.kiKat||it.kiTipp?{notiz:`KI-Erstantwort: ${it.kiKat||""}${it.kiTipp?" · Tipp an Mieter: "+it.kiTipp:""}`}:{})};
         if(it.typ==="verstoss") doc={nr:nextNr(),datum:it.datum||today(),wohnungId:it.wohnungId||"",objektId:oid,art:it.art||"Sonstiges",tstatus:"Neu",prio:"Normal",quelle:"Mieter über App",gemeldetVon:m.name,fotoAsset:it.foto||null,notiz:it.text||""};
         if(it.typ==="zaehler") doc={datum:it.datum||today(),wohnungId:m.wohnungId,art:it.art||"Strom",nummer:it.nummer||"",stand:Number(it.stand)||0,fotoAsset:it.foto||null,notiz:"Vom Mieter über die App gemeldet"};
         if(it.typ==="garten") doc={objektId:oid,wohnungId:m.wohnungId,datum:it.datum,von:it.von,bis:it.bis,anlass:it.anlass||"",status:"Angefragt"};
@@ -1553,7 +1570,7 @@ async function processEingang(){
         if(it.typ==="kuendigung"||it.typ==="dokument") doc={tpl:it.tpl||"kuendM",titel:(VTPL[it.tpl||"kuendM"]||VTPL.kuendM).t,mieterId:m.id,wohnungId:m.wohnungId,objektId:oid,felder:it.felder||{},text:it.text||"",ort:"",datum:it.datum||today(),status:"Unterschrieben",sigVermieter:null,sigMieter:it.sig||null,pdfAsset:it.pdf||null,erstellt:it.ts||new Date().toISOString(),von:"Mieter über App"};
         if(it.typ==="antwort") doc={mieterId:m.id,von:"mieter",text:it.text||"",datum:it.ts||new Date().toISOString(),foto:it.foto||null};
         if(!doc) continue;
-        try{ st.data[col]=st.data[col]||{}; st.data[col][did]={id:did,...doc,...base}; await st.db.collection(col).doc(did).set({...doc,...base}); }catch(err){ console.warn("eingang",err); delete st.data[col][did]; }
+        try{ st.data[col]=st.data[col]||{}; st.data[col][did]={id:did,...doc,...base}; await st.db.collection(col).doc(did).set({...doc,...base}); if(it.typ==="anfrage"&&typeof vtAuto==="function") await vtAuto(did).catch(e=>console.warn("vtAuto",e)); }catch(err){ console.warn("eingang",err); delete st.data[col][did]; }
       }
       const s=e.settings; if(s&&s.ts&&s.ts!==m.settingsTs){ await st.db.collection("mieter").doc(m.id).update({stumm:!!s.stumm,markt:!!s.markt,feiern:!!s.feiern,settingsTs:s.ts}).catch(()=>{}); }
     }
@@ -1592,7 +1609,7 @@ function vMStart(){
   const sc={score:p.score.score,rate:p.score.rate,v:p.score.v}, ym=curYm(), z0=p.miete.zahlungen.find(z=>z.monat===ym);
   const pend=(st.preview?[]:(st.ein?.items||[])).filter(i=>!p.done?.[i.id]&&["schaden","verstoss","zaehler"].includes(i.typ));
   const un=mUnread();
-  return `${previewBar()}
+  return `${previewBar()}${typeof vtSignBlock==="function"?vtSignBlock():""}
   ${un.imp.length?`<div class="item tap s-bad" data-act="tab" data-tab="haeuser" role="button" tabindex="0"><div class="head"><div><b>Wichtige Nachricht vom Vermieter</b><div class="meta">${esc(un.imp[un.imp.length-1].betreff||un.imp[un.imp.length-1].text.slice(0,90))}</div></div><span class="pill bad">${un.imp.length}</span></div></div>`:(un.msg?`<div class="item tap" data-act="tab" data-tab="haeuser" role="button" tabindex="0"><div class="head"><b>${un.msg} neue Nachricht${un.msg>1?"en":""} vom Vermieter</b><span class="pill bad">${un.msg}</span></div></div>`:"")}
   ${un.brett?`<div class="item tap" data-act="tab" data-tab="gemein" role="button" tabindex="0"><div class="head"><b>${un.brett>1?`${un.brett} neue Aushänge im Haus`:"1 neuer Aushang im Haus"}</b><span class="pill bad">${un.brett}</span></div></div>`:""}
   <div><div class="small">${esc(fmtDate(today()))} · ${esc(p.wohnung.objekt)}${p.wohnung.lage?` · ${esc(p.wohnung.lage)}`:""}</div><h1 style="font-size:28px">${esc(gruss)}, ${esc((p.name||"").split(" ")[0])}</h1></div>
@@ -1673,9 +1690,10 @@ function openMForm(typ){
     const it={typ,datum:today(),...(T.as||{})};
     for(const f of T.f){ if(f.t==="photo") continue; const el=document.getElementById("m_"+f.k); if(!el) continue; let v=f.t==="bool"?el.checked:el.value; if(f.t==="number") v=v===""?null:Number(String(v).replace(",",".")); if(f.req&&(v==null||v==="")){ toast(`Bitte „${f.l}“ ausfüllen`); el.focus(); return; } if(v!==""&&v!=null) it[f.k]=v; }
     if(typ==="garten"&&it.bis<=it.von){ toast("Bitte Zeit prüfen"); return; }
+    if(typ==="schaden"&&typeof kiSchaden==="function"&&!$("#mSend").dataset.ki){ $("#mSend").dataset.ki="1"; const go=await kiSchaden(it,pend.foto); if(!go) return; }
     if(!mOk()) return;
     const b=$("#mSend"); b.disabled=true; b.textContent="Sendet …";
-    try{ for(const k in pend) if(st.assets) it[k]=(await st.assets.upload(pend[k])).id; await mSend(it); closeSheet(); toast("Gesendet – der Vermieter wird informiert"); render(); }
+    try{ for(const k in pend) if(st.assets) it[k]=(await st.assets.upload(pend[k])).id; window.__jhLastM=await mSend(it); closeSheet(); toast("Gesendet – der Vermieter wird informiert"); render(); }
     catch(e){ console.error(e); toast("Senden fehlgeschlagen"); b.disabled=false; b.textContent="Senden"; }
   };
 }
@@ -1689,6 +1707,7 @@ function openMProfil(){
    <div class="field chk"><input type="checkbox" id="msFeier"${s.feiern?" checked":""}><label for="msFeier">Feier-Hinweise</label></div>
    <div class="small">Wichtige Infos vom Vermieter bekommst du immer.</div></section>
   ${st.tts?`<button class="btn" data-act="voice" style="align-self:flex-start">Stimme der Sprachhilfe wählen</button>`:""}
+  <button class="btn ghost" data-act="dsInfo" style="align-self:flex-start">Datenschutzhinweise</button>
   ${window.JH?`<button class="btn ghost" data-act="jhLogout" style="align-self:flex-start">Abmelden</button>`:""}<div class="row end"><button class="btn" data-act="close">Abbrechen</button><button class="btn pri" id="msSave">Speichern</button></div>`);
   $("#msSave").onclick=async()=>{ if(!mOk()) return; const ns={stumm:$("#msStumm").checked,markt:$("#msMarkt").checked,feiern:$("#msFeier").checked,ts:new Date().toISOString()}; try{ await einSave({settings:ns}); closeSheet(); toast("Gespeichert"); }catch(e){ toast("Speichern fehlgeschlagen"); } };
 }
@@ -1750,7 +1769,7 @@ async function invPdf(oid){
   const o=st.data.objekte[oid]; const xs=list("inventar").filter(x=>x.objektId===oid).sort((a,b)=>String(a.ort||"").localeCompare(String(b.ort||""))||String(a.name).localeCompare(String(b.name)));
   toast("PDF wird erstellt …");
   const {jsPDF}=window.jspdf; const d=new jsPDF({unit:"mm",format:"a4"}); let y=20;
-  if(st.logoDu){ try{ d.addImage(st.logoDu,"PNG",172,10,16,18.3); }catch(e){} }
+  jhLogo(d,172,10,16,18.3);
   d.setFont("helvetica","bold"); d.setFontSize(15); d.text(`Inventarliste ${o?.name||""}`,20,y); y+=6; d.setFont("helvetica","normal"); d.setFontSize(9.5); d.text(`${o?.adresse||""} · Stand ${fmtDate(today())}`,20,y); y+=8;
   let ort=null;
   for(const x of xs){
@@ -1779,9 +1798,9 @@ function stbData(y,oid){
 }
 async function stbPdf(y,oid,mitBelegen){
   const {ein,aus,pro}=stbData(y,oid), cf=st.cfg||{}; const {jsPDF}=window.jspdf; const d=new jsPDF({unit:"mm",format:"a4"}); const E=n=>eur(n).replace("€","EUR");
-  let pg=1; const foot=()=>{ d.setFontSize(7.5); d.setTextColor(120); d.text(`Unterlagen Vermietung ${y} · ${cf.name||""} · Seite ${pg}`,20,290); d.setTextColor(0); };
+  let pg=1; const foot=()=>{ d.setFontSize(7.5); d.setTextColor(120); d.__footNote=`Unterlagen Vermietung ${y}`; d.setTextColor(0); };
   const np=()=>{ foot(); d.addPage(); pg++; return 20; };
-  if(st.logoDu){ try{ d.addImage(st.logoDu,"PNG",172,10,16,18.3); }catch(e){} }
+  jhLogo(d,172,10,16,18.3);
   let yy=24; d.setFont("helvetica","bold"); d.setFontSize(17); d.text(`Unterlagen Vermietung und Verpachtung ${y}`,20,yy); yy+=8;
   d.setFont("helvetica","normal"); d.setFontSize(10); [cf.name,cf.adresse,cf.steuernr?`Steuernummer: ${cf.steuernr}`:"",`Erstellt am ${fmtDate(today())}`].filter(Boolean).forEach(l=>{ d.text(l,20,yy); yy+=5; }); yy+=4;
   d.setFont("helvetica","bold"); d.setFontSize(12); d.text("1. Übersicht je Objekt",20,yy); yy+=7;
@@ -1797,14 +1816,14 @@ async function stbPdf(y,oid,mitBelegen){
   if(!pro.length){ d.setFontSize(10); d.text("Keine Einnahmen oder Ausgaben in diesem Jahr erfasst.",20,yy); yy+=6; }
   const table=(title,cols,rows)=>{ if(yy>200) yy=np(); else yy+=10; d.setFont("helvetica","bold"); d.setFontSize(12); d.text(title,20,yy); yy+=7; d.setFontSize(8.5);
     const head=()=>{ d.setFont("helvetica","bold"); let x=20; cols.forEach(c=>{ d.text(c[0],c[2]?x+c[1]-1:x,yy,c[2]?{align:"right"}:undefined); x+=c[1]; }); yy+=2; d.line(20,yy,190,yy); yy+=4; d.setFont("helvetica","normal"); };
-    head(); for(const r of rows){ if(yy>280){ yy=np(); head(); } let x=20; cols.forEach((c,i)=>{ const t=String(r[i]??""); const s=d.splitTextToSize(t,c[1]-2)[0]||""; d.text(s,c[2]?x+c[1]-1:x,yy,c[2]?{align:"right"}:undefined); x+=c[1]; }); yy+=4.6; } };
+    head(); for(const r of rows){ if(yy>276){ yy=np(); head(); } let x=20; cols.forEach((c,i)=>{ const t=String(r[i]??""); const s=d.splitTextToSize(t,c[1]-2)[0]||""; d.text(s,c[2]?x+c[1]-1:x,yy,c[2]?{align:"right"}:undefined); x+=c[1]; }); yy+=4.6; } };
   table("2. Mieteinnahmen",[["Monat",20],["Objekt",32],["Wohnung",18],["Mieter",34],["Soll",24,1],["Gezahlt",24,1],["Eingang",18]],ein.map(z=>[fmtYm(z.monat,"de"),z.objekt,z.wohnung,z.mieter,E(z.soll),E(z.bezahlt),z.eingang?fmtDate(z.eingang):z.status]));
   if(yy>270) yy=np(); yy+=2; d.setFont("helvetica","bold"); d.text(`Summe gezahlt: ${E(ein.reduce((s,z)=>s+z.bezahlt,0))}`,190,yy+2,{align:"right"});
   table("3. Ausgaben",[["Beleg",12],["Datum",18],["Objekt",26],["Kategorie",30],["Händler / Zweck",39],["Betrag",24,1],["Umlage",12],["Träger",6]],aus.map(a=>[a.nr,fmtDate(a.datum),a.objekt,a.kategorie,[a.haendler,a.beschreibung].filter(Boolean).join(" – "),E(a.betrag),a.umlage,a.traeger.startsWith("Mieter")?"M":"V"]));
   if(yy>270) yy=np(); yy+=2; d.setFont("helvetica","bold"); d.text(`Summe Kosten Vermieter: ${E(aus.filter(a=>!a.traeger.startsWith("Mieter")).reduce((s,a)=>s+a.betrag,0))}`,190,yy+2,{align:"right"}); yy+=7; d.setFont("helvetica","normal"); d.setFontSize(8); d.text("Träger: V = Vermieter, M = vom Mieter verursacht (Forderung an Mieter). Umlage = umlagefähig nach BetrKV.",20,yy);
   if(mitBelegen){ const mitB=aus.filter(a=>a.beleg); if(mitB.length){ yy=np(); d.setFont("helvetica","bold"); d.setFontSize(12); d.text("4. Belege",20,yy); yy+=6; let col=0;
     for(const a of mitB){ const du=await urlToDataUrl(assetUrl(a.beleg)); if(!du) continue; let w=80,h=100; try{ const im=await new Promise((r,j)=>{ const i=new Image(); i.onload=()=>r(i); i.onerror=j; i.src=du; }); const k=Math.min(80/im.width,100/im.height); w=im.width*k; h=im.height*k; }catch(e){}
-      if(yy+h+8>282){ if(col===0){ col=1; yy=yy; } } const x=col?108:20; if(yy+h+8>282){ yy=np(); col=0; }
+      if(yy+h+8>279){ if(col===0){ col=1; yy=yy; } } const x=col?108:20; if(yy+h+8>279){ yy=np(); col=0; }
       d.setFont("helvetica","bold"); d.setFontSize(9); d.text(`${a.nr} · ${fmtDate(a.datum)} · ${E(a.betrag)}`,col?108:20,yy); try{ d.addImage(du,"JPEG",col?108:20,yy+2,w,h); }catch(e){}
       if(col===0){ col=1; } else { col=0; yy+=h+10; } }
   } }
@@ -2286,7 +2305,7 @@ Alle Beträge in Euro als Zahl, fehlende Werte null. Bei Lohnsteuerbescheinigung
 }
 
 /* ---------- Finanzen: ein Bereich für Geld, Steuer, Kauf, Finanzierung, Steuerberater (20.11.2026) ---------- */
-const FIN_SUB={ausgaben:"Ausgaben & Belege",miete:"Mieteingänge",haus:"Finanzierung, Kauf & Steuer je Haus",steuer:"Einkommen & Steuer",jahr:"Jahresabschluss"};
+const FIN_SUB={ausgaben:"Ausgaben & Belege",miete:"Mieteingänge",haus:"Finanzierung, Kauf & Steuer je Haus",steuer:"Einkommen & Steuer",jahr:"Jahresabschluss",nk:"Nebenkostenabrechnung",mietanp:"Miete anpassen",anlv:"Anlage V & Grundsteuer",rendite:"Rendite je Wohnung"};
 const FSVG={
  euro:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M4 15l4-6 4 2 4-5 4 4"/></svg>`,
  lohn:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></svg>`,
@@ -2331,7 +2350,11 @@ function vFinHub(){
    ${row("miete",FSVG.miete,"Mieteingänge",`${esc(eur(istM))} eingegangen · Rückstände, Bankabgleich`)}
    ${row("haus",FSVG.haus,"Häuser: Finanzierung, Kauf & Steuer",`Cashflow, Kredite, Kaufvertrag, Abschreibung, 15-%-Grenze`)}
    ${st.role==="master"?row("steuer",FSVG.lohn,"Einkommen & Steuer",B?`Grenzsteuersatz ${esc(pctF(B.grenz))} · Steuer mit Vermietung ${esc(eur(B.mit.sum))}`:"Gehalt hochladen → echte Steuer und Erstattung"):""}
+   ${row("nk",FSVG.haus,"Nebenkostenabrechnung",`Je Haus und Jahr · Verteilerschlüssel · PDF je Mieter`)}
+   ${row("mietanp",FSVG.miete,"Miete anpassen",`Mietspiegel, Kappungsgrenze, Indexmiete · Brief`)}
    ${row("jahr",FSVG.jahr,"Jahresabschluss",`Ergebnis je Haus, Anlage V, Steuer-Effekt`)}
+   ${row("anlv",FSVG.stb,"Anlage V & Grundsteuer",`Werte für ELSTER je Haus · Grundsteuerbescheid`)}
+   ${row("rendite",FSVG.haus,"Rendite je Wohnung",`Welche Wohnung lohnt sich · Leerstand · Cashflow`)}
    <button class="vrow" data-act="stb"><span class="tile">${FSVG.stb}</span><span class="vt"><b>Steuerberater</b><small class="vk">PDF mit Übersicht, Mieteinnahmen, Ausgaben, AfA und Belegen + Excel – per E-Mail senden</small></span><span class="chev">›</span></button>
   </section>
   <p class="small">Alle Steuerzahlen sind Schätzungen, keine Steuerberatung.</p>`;
@@ -2557,7 +2580,7 @@ function vMNachr(){
 }
 
 /* ---------- KI-Assistent ---------- */
-const APP_GUIDE=`JoumHome ist eine Vermieter-App. Bereiche: Start (Mieter-Bewertung, Speedtest, KI-Assistent, Schnellaktionen Beleg scannen, Vertrag scannen, Verstoß melden, Zählerstand, Schaden, Aushang, Per Sprache melden), Häuser (Objekte mit Reitern Übersicht, Mieter & Verträge, Tickets, Fotos & Videos, Protokolle; Mieterliste; Bewertung; Zähler für Wasser, Strom, Heizung), Geld (Ausgaben mit Belegscan und Kostenträger, Mieteingänge mit „Monat anlegen“, „Bezahlt heute“, Zahlungserinnerung als PDF; Jahresabschluss; CSV-Export für die Steuer), Zahlungen/Mahnungen (Tickets → Zahlungen: offene Miete, Kaution, Mieter-Kosten werden erkannt; 1. Mahnung, 2. Mahnung als Musterbrief mit Unterschrift, Versand per App, WhatsApp, Mail, Post; nach 2 Mahnungen Anwalt einschalten), Aufträge (Knopf „Anwalt beauftragen“ wie bei Handwerkern; Kosten von Handwerker und Anwalt per „Rechnung scannen“ automatisch dem Haus/der Wohnung zugeordnet und beim Steuerberater; Tickets mit Werkzeug-Symbol brauchen einen Handwerker), Handwerker (Knopf „Handwerker beauftragen“: bekannten Handwerker wählen, Daten werden automatisch eingetragen, neue werden als Kontakt gespeichert; aus einem Ticket werden Text und Fotos übernommen; Senden per WhatsApp an seine Nummer, per E-Mail und Fotos über das Teilen-Menü; Aufträge mit Status Beauftragt, Termin vereinbart, Erledigt, Storniert und Kosten erfassen; auch im Ticket als Knopf), Tickets (Schäden und Verstöße mit Nummer, Status Neu/In Bearbeitung/Erledigt, Verlauf, Kosten und Belegen, Meldung aus WhatsApp einfügen, Meldelink für Mieter), Gemeinschaft (Kehrwochen-Plan reihum mit Tausch, Garten-Reservierung mit Überschneidungsprüfung, Schwarzes Brett mit Empfängern je nach Einstellungen). Mieter-Score: 70 Prozent Zahlungspünktlichkeit (bis zum 3. des Monats) plus 30 Prozent Hausordnung (je Verstoß minus 25 Prozent), Stufen A (ab 90) bis F (unter 40). Hausordnungs-Stufen je Wohnung: 1. Hinweis, 2. Erinnerung, ab 3. Abmahnung (Brief als PDF). Übergabe- und Rücknahmeprotokoll mit Zählern, Schlüsseln, Räumen, Fotos, Unterschrift per Finger, PDF. WhatsApp-Nachrichten gehen in der Sprache des Mieters. Rollen: Master-Admin (Besitzer), Admin (per Teilen als Bearbeiter), Mitarbeiter (per Teilen als Mitwirkende, sieht nur Tickets, Zähler, Kehrwoche). Oben: Fragezeichen schaltet Hilfe-Fenster, Lautsprecher schaltet Vorlesen, daneben die Sprachauswahl.`;
+const APP_GUIDE=`JoumHome ist eine Vermieter-App. Bereiche: Start (Mieter-Bewertung, Speedtest, KI-Assistent, Schnellaktionen Beleg scannen, Vertrag scannen, Verstoß melden, Zählerstand, Schaden, Aushang, Per Sprache melden), Häuser (Objekte mit Reitern Übersicht, Mieter & Verträge, Tickets, Fotos & Videos, Protokolle; Mieterliste; Bewertung; Zähler für Wasser, Strom, Heizung), Geld (Ausgaben mit Belegscan – private Artikel auf dem Bon wie Kaugummi werden automatisch erkannt und abgezogen –, Kostenträger, Mieteingänge mit „Monat anlegen“, „Bezahlt heute“, Zahlungserinnerung als PDF; Jahresabschluss; CSV-Export für die Steuer), Zahlungen/Mahnungen (Tickets → Zahlungen: offene Miete, Kaution, Mieter-Kosten werden erkannt; 1. Mahnung, 2. Mahnung als Musterbrief mit Unterschrift, Versand per App, WhatsApp, Mail, Post; nach 2 Mahnungen Anwalt einschalten), Aufträge (Knopf „Anwalt beauftragen“ wie bei Handwerkern; Kosten von Handwerker und Anwalt per „Rechnung scannen“ automatisch dem Haus/der Wohnung zugeordnet und beim Steuerberater; Tickets mit Werkzeug-Symbol brauchen einen Handwerker), Handwerker (Knopf „Handwerker beauftragen“: bekannten Handwerker wählen, Daten werden automatisch eingetragen, neue werden als Kontakt gespeichert; aus einem Ticket werden Text und Fotos übernommen; Senden per WhatsApp an seine Nummer, per E-Mail und Fotos über das Teilen-Menü; Aufträge mit Status Beauftragt, Termin vereinbart, Erledigt, Storniert und Kosten erfassen; auch im Ticket als Knopf), Tickets (Schäden und Verstöße mit Nummer, Status Neu/In Bearbeitung/Erledigt, Verlauf, Kosten und Belegen, Meldung aus WhatsApp einfügen, Meldelink für Mieter), Gemeinschaft (Kehrwochen-Plan reihum mit Tausch, Garten-Reservierung mit Überschneidungsprüfung, Schwarzes Brett mit Empfängern je nach Einstellungen). Mieter-Score: 70 Prozent Zahlungspünktlichkeit (bis zum 3. des Monats) plus 30 Prozent Hausordnung (je Verstoß minus 25 Prozent), Stufen A (ab 90) bis F (unter 40). Hausordnungs-Stufen je Wohnung: 1. Hinweis, 2. Erinnerung, ab 3. Abmahnung (Brief als PDF). Übergabe- und Rücknahmeprotokoll mit Zählern, Schlüsseln, Räumen, Fotos, Unterschrift per Finger, PDF. WhatsApp-Nachrichten gehen in der Sprache des Mieters. Rollen: Master-Admin (Besitzer), Admin (per Teilen als Bearbeiter), Mitarbeiter (per Teilen als Mitwirkende, sieht nur Tickets, Zähler, Kehrwoche). Oben: Fragezeichen schaltet Hilfe-Fenster, Lautsprecher schaltet Vorlesen, daneben die Sprachauswahl.`;
 function aiData(){
   if(isTenant()) return tenantAiData();
   const L=[];
@@ -2679,7 +2702,7 @@ const HINT={
  kaufOpen:["Kaufdaten","Kaufpreis, Bodenanteil, Nebenkosten und AfA-Satz – Grundlage für Abschreibung und 15-%-Grenze."],
  kaufZins:["Kreditzinsen","Zinsen des Jahres eintragen oder Zinsbescheinigung scannen. Nur Zinsen zählen, nicht die Tilgung."],
  stSatz:["Steuersatz","Dein persönlicher Grenzsteuersatz inkl. Soli/Kirchensteuer – steht im letzten Steuerbescheid bzw. weiß dein Steuerberater."],
- scanBeleg:["Beleg scannen","Kassenbon oder Rechnung fotografieren. Claude liest Datum, Betrag und Kategorie aus und legt die Ausgabe an."],
+ scanBeleg:["Beleg scannen","Kassenbon oder Rechnung fotografieren. Claude liest jede Position, sortiert Privates (z. B. Kaugummi, Getränke) automatisch aus und zieht es vom Betrag ab. Per Haken kannst du korrigieren – die App merkt sich das."],
  scanVertrag:["Vertrag scannen","Mietvertrag Seite für Seite fotografieren. Er wird als PDF gespeichert, die Mieterdaten werden ausgelesen."],
  scanZaehler:["Zählerstand","Wasser-, Strom- oder Heizungszähler fotografieren. Claude liest Nummer und Stand aus."],
  voice:["Per Sprache melden","Sprich deine Meldung ein. Claude erkennt Wohnung und Art und macht daraus ein Ticket."],
@@ -2846,6 +2869,7 @@ function openForm(col,id,prefill={},pending={},ai=null,hidden={}){
   }
   for(const k in F.pending) if(F.pending[k] instanceof Blob && F.pending[k].type.startsWith("image/")) showPending(k,F.pending[k]);
   for(const k in F.pending) if(F.pending[k] instanceof Blob && F.pending[k].type==="application/pdf"){ const s2=document.getElementById("f_"+k+"_st"); if(s2) s2.textContent="PDF bereit"; }
+  if(col==="ausgaben"&&Array.isArray(vals.positionen)&&vals.positionen.length){ F.extra={positionen:vals.positionen.map(p=>({...p})),bonGesamt:vals.bonGesamt,mwstBon:vals.mwstBon,privatAbzug:vals.privatAbzug||0}; posRender(F); }
   return F;
 }
 function showPending(k,blob){ const box=document.getElementById("f_"+k+"_box"); if(!box) return; const old=box.querySelector("img.pend"); if(old) old.remove(); const img=document.createElement("img"); img.className="thumb pend"; img.alt="Neues Foto"; img.src=URL.createObjectURL(blob); box.prepend(img); const s=document.getElementById("f_"+k+"_st"); if(s) s.textContent="Neues Foto"; }
@@ -2895,7 +2919,9 @@ async function saveForm(){
       data.verlauf=v.slice(-100);
     }
     if(!form.id) Object.assign(data,form.hidden||{});
+    if(form.extra&&form.col==="ausgaben"){ const P=form.extra.positionen||[]; Object.assign(data,{positionen:P.map(({korr,...p})=>p),bonGesamt:form.extra.bonGesamt??null,mwstBon:form.extra.mwstBon??null,privatAbzug:posCalc(P,form.extra.bonGesamt).pr}); posLearn(P); }
     await st.db.collection(form.col).doc(id).set(data);
+    window.__jhLast={col:form.col,id,neu:!form.id,nr:data.nr||null,t:Date.now()};
     closeSheet(); toast(!form.id&&TCOLS.includes(form.col)?`Ticket #${data.nr} eröffnet`:"Gespeichert");
     if(form.col==="ausgaben"&&KAUF_RENO_KAT.includes(data.kategorie)&&data.objektId) setTimeout(()=>{ const g=grenze15(data.objektId); if(g&&g.aktiv&&g.r>=0.8) toast(g.r>1?`Achtung: 15-%-Grenze überschritten (${eur(g.netto)} von ${eur(g.lim)})`:`Achtung: 15-%-Grenze zu ${Math.round(g.r*100)} % erreicht – noch ${eur(Math.max(0,g.rest))} netto bis ${fmtDate(g.ende)}`); },2800);
     if(!form.id&&TCOLS.includes(form.col)) setTimeout(()=>openTicket(form.col,id),300);
@@ -3036,8 +3062,31 @@ async function compress(file,max=1600){
   }catch(e){ return file; }
 }
 const blobToDataUrl = b => new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(b); });
+/* ---------- Logo auf jedem App-Dokument (fest, nicht abschaltbar) ---------- */
+function jhFootLines(){ const c=st.cfg||{}; const l1=[c.name,c.adresse].filter(Boolean).join(" · "); const l2=[c.telefon?"Tel. "+c.telefon:"",c.email?"E-Mail "+c.email:"",c.iban?`IBAN ${c.iban}${c.bic?" · BIC "+c.bic:""}${c.bank?" ("+c.bank+")":""}`:""].filter(Boolean).join(" · "); return [l1,l2]; }
+function jhFooter(d){
+  let [l1,l2]=jhFootLines(); if(d.__footPublic){ const c=st.cfg||{}; l2=[c.telefon?"Tel. "+c.telefon:"",c.email?"E-Mail "+c.email:""].filter(Boolean).join(" · "); } const n=d.getNumberOfPages(), cur=d.getCurrentPageInfo().pageNumber, W=d.internal.pageSize.getWidth(), H=d.internal.pageSize.getHeight(); const note=d.__footNote||"";
+  const fx=t=>String(t||"").replace(/[−–]/g,"-").replace(/[„“”]/g,'"');
+  for(let i=1;i<=n;i++){ d.setPage(i); d.setDrawColor(190); d.setLineWidth(0.2); d.line(20,H-12.5,W-20,H-12.5); d.setFont("helvetica","normal"); d.setFontSize(7); d.setTextColor(110);
+    if(l1) d.text(d.splitTextToSize(fx(l1),note?115:170)[0],20,H-9); if(note) d.text(d.splitTextToSize(fx(note),60)[0],W-20,H-9,{align:"right"});
+    if(l2) d.text(d.splitTextToSize(fx(l2),150)[0],20,H-5.5); if(n>1) d.text(`Seite ${i} von ${n}`,W-20,H-5.5,{align:"right"});
+    d.setTextColor(0); d.setDrawColor(0); }
+  d.setPage(cur);
+}
+function jhLogo(d,x=172,y=10,w=16,h=18.3){ if(!st.logoDu) return; try{ const W=d.internal.pageSize.getWidth(); const big=y>=14; const lw=big?16:10.5, lh=big?18.3:12, ly=big?10:2.5; d.addImage(st.logoDu,"PNG",(W-lw)/2,ly,lw,lh); (d.__logoPages=d.__logoPages||new Set()).add(d.getCurrentPageInfo().pageNumber); }catch(e){} }
+(function(){ const NS=window.jspdf, J=NS&&NS.jsPDF; if(!J||J.__jhLogoHook) return;
+  const WIN=/[^\u0000-\u00FF\u20AC\u2013\u2014\u2018\u2019\u201A\u201C\u201D\u201E\u2020\u2021\u2022\u2026\u2030\u2039\u203A\u0152\u0153\u0160\u0161\u0178\u017D\u017E\u0192\u02C6\u02DC\u2122]/;
+  function uniReady(d){ if(d.__uni!==undefined) return d.__uni; d.__uni=false; try{ if(st.uniF){ d.addFileToVFS("JHUni.ttf",st.uniF); d.addFont("JHUni.ttf","JHUni","normal"); if(st.uniFB){ d.addFileToVFS("JHUniB.ttf",st.uniFB); d.addFont("JHUniB.ttf","JHUni","bold"); } d.__uni=true; } }catch(e){ console.warn("Schrift",e); } return d.__uni; }
+  function JH(){ const d=new J(...arguments); const out=d.output;
+    const tx=d.text.bind(d);
+    d.text=function(t,...a){ const s=Array.isArray(t)?t.join("\n"):String(t??""); if(WIN.test(s)&&uniReady(d)){ const f=d.getFont(); const bold=/bold/i.test(f.fontStyle||""); d.setFont("JHUni",bold&&st.uniFB?"bold":"normal"); try{ return tx(t,...a); }finally{ d.setFont(f.fontName,f.fontStyle); } } return tx(t,...a); };
+    d.output=function(){ try{ if(!d.__noLogo&&!d.__footDone){ d.__footDone=true; jhFooter(d); } }catch(e){ console.warn("Fußzeile",e); } try{ if(!d.__noLogo&&st.logoDu){ const n=d.getNumberOfPages(), cur=d.getCurrentPageInfo().pageNumber, done=d.__logoPages||new Set(); for(let i=1;i<=n;i++){ if(done.has(i)) continue; d.setPage(i); const W=d.internal.pageSize.getWidth(); d.addImage(st.logoDu,"PNG",(W-10.5)/2,2.5,10.5,12); done.add(i); } d.__logoPages=done; d.setPage(cur); } }catch(e){ console.warn("Logo",e); } return out.apply(d,arguments); };
+    return d; }
+  Object.keys(J).forEach(k=>{ try{ JH[k]=J[k]; }catch(e){} }); JH.API=J.API; JH.prototype=J.prototype; JH.__jhLogoHook=true;
+  try{ NS.jsPDF=JH; }catch(e){} if(NS.jsPDF!==JH){ try{ Object.defineProperty(NS,"jsPDF",{value:JH,configurable:true,writable:true}); }catch(e){} }
+})();
 async function imagesToPdf(blobs){
-  const {jsPDF}=window.jspdf; const d=new jsPDF({unit:"mm",format:"a4"});
+  const {jsPDF}=window.jspdf; const d=new jsPDF({unit:"mm",format:"a4"}); d.__noLogo=true;
   for(let i=0;i<blobs.length;i++){
     const du=await blobToDataUrl(blobs[i]); const img=new Image(); img.src=du; await img.decode();
     const W=190,H=277, r=Math.min(W/img.naturalWidth,H/img.naturalHeight); const w=img.naturalWidth*r,h=img.naturalHeight*r;
@@ -3060,17 +3109,58 @@ async function aiJson(prompt,images){
 
 /* Beleg scannen */
 function costPrefill(col,t){ const w=wohn(t?.wohnungId); return {wohnungId:t?.wohnungId||"",objektId:w?.objektId||"",kategorie:"Reparatur/Handwerker",kostentraeger:col==="verstoesse"?"Mieter (verursacht)":"Vermieter",beschreibung:`${tNr(t)} ${tTitle(col,t)}`.slice(0,120)}; }
+/* Beleg-Positionen: private Artikel (z. B. Kaugummi) automatisch aussortieren */
+const PRIV_BSP="Lebensmittel, Süßigkeiten, Kaugummi, Getränke, Snacks, Tabak, Zeitschriften, Kosmetik und Drogerie für den Eigenbedarf, Medikamente, Kleidung, Spielzeug, Wohn-Deko für das eigene Zuhause, Tierbedarf, Geschenke, Gutscheine, Pfand für private Getränke";
+const rc2=x=>Math.round((+x||0)*100)/100;
+function posKey(t){ return String(t||"").toLowerCase().replace(/[0-9.,x*€%]+/g," ").replace(/\s+/g," ").trim().slice(0,40); }
+function posRegelnTxt(){ const e=Object.entries(st.bregeln?.r||{}).slice(-60); return e.length?`\nFrühere Korrekturen des Vermieters – genau so übernehmen: ${e.map(([k,v])=>`"${k}" = ${v==="p"?"privat":"für die Wohnung"}`).join("; ")}.`:""; }
+function posCalc(P,gesamt){ const sum=rc2(P.reduce((s,p)=>s+(+p.betrag||0),0)); const g=gesamt!=null&&+gesamt>0?rc2(gesamt):sum; const pr=rc2(P.filter(p=>p.privat).reduce((s,p)=>s+(+p.betrag||0),0)); return {g,pr,w:rc2(Math.max(0,g-pr)),sum}; }
+function posApply(form){
+  if(!form||form!==F||!form.extra) return; const x=form.extra; const c=posCalc(x.positionen,x.bonGesamt); x.privatAbzug=c.pr;
+  const b=document.getElementById("f_betrag"); if(b) b.value=c.w;
+  const m=document.getElementById("f_mwst"); if(m&&x.mwstBon!=null&&c.g>0) m.value=rc2(x.mwstBon*c.w/c.g);
+}
+function posRender(form){
+  if(!form||form!==F) return; const P=form.extra?.positionen; let box=document.getElementById("posBox");
+  if(!P||!P.length){ box?.remove(); return; }
+  if(!box){ box=document.createElement("div"); box.id="posBox"; box.className="card posbox"; const ai=document.getElementById("aiBox"); if(ai) ai.insertAdjacentElement("afterend",box); else $("#sheet .fields")?.insertAdjacentElement("beforebegin",box); }
+  const c=posCalc(P,form.extra.bonGesamt); const np=P.filter(p=>p.privat).length;
+  box.innerHTML=`<div class="spread"><b>Positionen auf dem Bon</b><span class="small">Haken = für die Wohnung</span></div>
+  ${P.map((p,i)=>`<label class="posrow${p.privat?" priv":""}"><input type="checkbox" data-pi="${i}"${p.privat?"":" checked"}><span class="pt"><b>${esc(p.text||"Artikel")}</b>${p.privat?`<small>Privat${p.grund?" – "+esc(p.grund):""} · wird abgezogen</small>`:(p.unsicher?`<small><span class="pill warn">bitte prüfen</span></small>`:"")}</span><span class="num">${p.privat?"− ":""}${eur(Math.abs(+p.betrag||0))}</span></label>`).join("")}
+  <div class="possum"><div><span>Bon gesamt</span><span class="num">${eur(c.g)}</span></div>${np?`<div><span>Privat aussortiert (${np})</span><span class="num">− ${eur(c.pr)}</span></div>`:""}<div class="tot"><span>Ausgabe für die Wohnung</span><span class="num">${eur(c.w)}</span></div>${Math.abs(c.sum-c.g)>0.05?`<div class="small" style="color:var(--muted)">Hinweis: Positionen ergeben ${eur(c.sum)} – bitte mit dem Bon vergleichen.</div>`:""}</div>`;
+  box.querySelectorAll("input[data-pi]").forEach(el=>el.addEventListener("change",()=>{ const p=P[+el.dataset.pi]; p.privat=!el.checked; p.korr=true; p.unsicher=false; if(!p.privat) p.grund=""; else if(!p.grund) p.grund="von dir aussortiert"; posApply(form); posRender(form); }));
+}
+async function posLearn(P){
+  const k=P.filter(p=>p.korr&&posKey(p.text)); if(!k.length||!st.db||!isAdmin()) return;
+  const r={...(st.bregeln?.r||{})}; k.forEach(p=>{ const key=posKey(p.text); delete r[key]; r[key]=p.privat?"p":"w"; });
+  const e=Object.entries(r).slice(-80); try{ await st.db.doc("config/belegregeln").set({r:Object.fromEntries(e)}); st.bregeln={r:Object.fromEntries(e)}; }catch(x){}
+}
 async function scanBeleg(o={}){
-  const files=await scanPages({title:"Beleg scannen",tip:"Kassenbon oder Rechnung fotografieren – Claude liest Datum, Händler und Betrag aus."}); if(!files.length) return;
+  const files=await scanPages({title:"Beleg scannen",tip:"Kassenbon oder Rechnung fotografieren – Claude liest jede Position aus und sortiert Privates (z. B. Kaugummi) automatisch aus."}); if(!files.length) return;
   const blob=await compress(files[0]);
-  const form=openForm("ausgaben",null,o.prefill||{},{belegAsset:blob},"KI liest den Beleg …",o.hidden||{});
-  const r=await aiJson(`Auf dem Foto ist ein deutscher Kassenbon oder eine Rechnung, die ein Vermieter für seine Mietwohnungen bezahlt hat.
+  const form=openForm("ausgaben",null,o.prefill||{},{belegAsset:blob},"KI liest den Beleg und prüft jede Position …",o.hidden||{});
+  const r=await aiJson(`Auf dem Foto ist ein deutscher Kassenbon oder eine Rechnung. Ein Vermieter hat damit Dinge für seine Mietwohnungen gekauft. Es können aber auch private Artikel dabei sein, die steuerlich NICHT als Kosten der Wohnung gelten dürfen.
 Antworte nur mit einem JSON-Objekt:
-{"datum":"YYYY-MM-DD oder null","haendler":"Name des Geschäfts/Firma","betrag":Gesamtbetrag brutto als Zahl,"mwst":enthaltene MwSt als Zahl oder null,"beschreibung":"kurz, was gekauft/geleistet wurde","kategorie":"genau einer aus ${JSON.stringify(KAT)}","umlage":true/false}
-"umlage" ist true nur bei umlagefähigen Betriebskosten nach Betriebskostenverordnung (${UMLAGE_KAT.join(", ")}); Reparaturen, Material, Möbel und Handwerker für Instandhaltung sind nicht umlagefähig.`,[blob]);
+{"datum":"YYYY-MM-DD oder null","haendler":"Name des Geschäfts/Firma","betrag":Gesamtbetrag brutto des ganzen Bons als Zahl,"mwst":enthaltene MwSt des ganzen Bons als Zahl oder null,"positionen":[{"text":"Artikel wie auf dem Bon, Abkürzungen verständlich ausgeschrieben","betrag":Zeilenbetrag brutto als Zahl (Menge × Preis, Rabatt auf den Artikel schon abgezogen),"privat":true/false,"unsicher":true/false,"grund":"kurz, warum privat – nur wenn privat"}],"beschreibung":"kurz, was für die Wohnung gekauft/geleistet wurde (ohne private Artikel)","kategorie":"genau einer aus ${JSON.stringify(KAT)}","umlage":true/false}
+Regeln:
+- "privat": true bei allem, was erkennbar nicht für Vermietung, Reparatur, Renovierung, Ausstattung, Reinigung oder Pflege von Haus und Garten gebraucht wird, z. B. ${PRIV_BSP}.
+- Werkzeug, Baumaterial, Farbe, Schrauben, Dübel, Silikon, Leuchtmittel, Reinigungsmittel, Müllbeutel, Gartenbedarf, Streusalz, Batterien (z. B. für Rauchmelder), Ersatzteile usw. sind für die Wohnung (privat=false).
+- "unsicher": true, wenn ein Artikel sowohl privat als auch für die Wohnung sein kann – dann privat=false lassen.
+- Jede gekaufte Zeile genau einmal. Pfand und Rabatte zum zugehörigen Artikel rechnen. Zwischensumme, Summe, Zahlungsart, MwSt-Tabelle, Rückgeld nicht als Position.
+- Bei einer Handwerker- oder Dienstleistungsrechnung reicht eine Position (privat=false).
+- "kategorie" und "umlage" nur nach den Artikeln für die Wohnung. "umlage" ist true nur bei umlagefähigen Betriebskosten nach Betriebskostenverordnung (${UMLAGE_KAT.join(", ")}); Reparaturen, Material, Möbel und Handwerker für Instandhaltung sind nicht umlagefähig.${posRegelnTxt()}`,[blob]);
   if(r.err){ aiDone(form,r.err,false); return; }
-  const v=r.v||{}; const fill={datum:v.datum,haendler:v.haendler,betrag:num(v.betrag),mwst:num(v.mwst),umlage:o.hidden?false:v.umlage}; if(!o.prefill){ fill.beschreibung=v.beschreibung; fill.kategorie=v.kategorie; } else if(v.beschreibung){ const el=document.getElementById("f_beschreibung"); if(el&&!form.dirty.has("beschreibung")) el.value=(el.value?el.value+" – ":"")+v.beschreibung; } const n=fillForm(form,fill);
-  aiDone(form,n?"Beleg ausgelesen – bitte prüfen und Objekt wählen.":"Nichts erkannt – bitte selbst ausfüllen.",!!n);
+  const v=r.v||{};
+  const P=(Array.isArray(v.positionen)?v.positionen:[]).map(p=>({text:String(p?.text||"").slice(0,80),betrag:rc2(num(p?.betrag)),privat:!!p?.privat,unsicher:!p?.privat&&!!p?.unsicher,grund:p?.privat?String(p?.grund||"").slice(0,80):""})).filter(p=>p.text||p.betrag);
+  const rules=st.bregeln?.r||{}; P.forEach(p=>{ const k=rules[posKey(p.text)]; if(k){ p.privat=k==="p"; p.unsicher=false; if(p.privat&&!p.grund) p.grund="wie beim letzten Mal"; } });
+  const gesamt=num(v.betrag), mwst=num(v.mwst);
+  let betrag=gesamt, mw=mwst;
+  if(P.length&&form===F){ form.extra={positionen:P,bonGesamt:gesamt,mwstBon:mwst,privatAbzug:0}; const c=posCalc(P,gesamt); form.extra.privatAbzug=c.pr; betrag=c.w; if(mwst!=null&&c.g>0) mw=rc2(mwst*c.w/c.g); }
+  const fill={datum:v.datum,haendler:v.haendler,betrag,mwst:mw,umlage:o.hidden?false:v.umlage}; if(!o.prefill){ fill.beschreibung=v.beschreibung; fill.kategorie=v.kategorie; } else if(v.beschreibung){ const el=document.getElementById("f_beschreibung"); if(el&&!form.dirty.has("beschreibung")) el.value=(el.value?el.value+" – ":"")+v.beschreibung; } const n=fillForm(form,fill);
+  if(form.extra) posRender(form);
+  const np=P.filter(p=>p.privat), nu=P.filter(p=>p.unsicher).length;
+  const msg=!n?"Nichts erkannt – bitte selbst ausfüllen.":np.length&&np.length===P.length?"Alles auf dem Bon wirkt privat – bitte prüfen, ob das eine Ausgabe für die Wohnung ist.":np.length?`${np.length} private Position${np.length>1?"en":""} aussortiert (− ${eur(form.extra?.privatAbzug||0)})${nu?`, ${nu} bitte prüfen`:""} – bitte Objekt wählen.`:`Beleg ausgelesen${nu?` – ${nu} Position${nu>1?"en":""} bitte prüfen`:""} – bitte Objekt wählen.`;
+  aiDone(form,msg,!!n&&!(np.length&&np.length===P.length));
 }
 /* Vertrag scannen */
 async function scanVertrag(wid){
@@ -3105,14 +3195,14 @@ Bei Wasser: kalt meist blau, warm meist rot markiert.`,[blob]);
 /* Briefe */
 function letter({toLines,betreff,body}){
   const {jsPDF}=window.jspdf; const d=new jsPDF({unit:"mm",format:"a4"}); const c=st.cfg||{};
-  if(st.logoDu){ try{ d.addImage(st.logoDu,"PNG",170,14,18,20.6); }catch(e){} }
+  jhLogo(d,170,14,18,20.6);
   d.setFont("helvetica","normal"); d.setFontSize(8.5); d.setTextColor(90);
   d.text([c.name,c.adresse].filter(Boolean).join(" · ")||"Absender in den Einstellungen eintragen",20,40);
   d.setTextColor(0); d.setFontSize(11); d.text(toLines,20,48);
   d.text(`${c.ort||""}${c.ort?", ":""}${fmtDate(today())}`,190,80,{align:"right"});
   d.setFont("helvetica","bold"); d.text(d.splitTextToSize(betreff,170),20,92); d.setFont("helvetica","normal");
   const lines=d.splitTextToSize(body,170); d.text(lines,20,104,{lineHeightFactor:1.4});
-  const contact=[c.telefon,c.email].filter(Boolean).join(" · "); d.setFontSize(8.5); d.setTextColor(90); if(contact) d.text(contact,20,285);
+  const contact=[c.telefon,c.email].filter(Boolean).join(" · "); d.setFontSize(8.5); d.setTextColor(90); if(contact) void contact;
   return d.output("blob");
 }
 function addrLines(m){ const w=wohn(m?.wohnungId); const o=w?st.data.objekte[w.objektId]:null; return [m?.name||"", ...(o?.adresse?String(o.adresse).split(",").map(s=>s.trim()):[]), w?.lage?`Wohnung: ${w.lage}`:""].filter(Boolean); }
@@ -3207,6 +3297,8 @@ function vStart(){
   list("auftraege").filter(a=>!isAnw(a)&&["Fertig gemeldet","Problem"].includes(a.status)).forEach(a=>att.push({c:a.status==="Problem"?"bad":"warn",t:a.status==="Problem"?`${a.hwName} kann nicht erledigen`:`${a.hwName} meldet: erledigt`,s:`A-${a.nr} ${a.titel}${a.status==="Problem"&&a.hwProblem?" – "+a.hwProblem:""}`,a:`<button class="btn sm" data-act="awOpen" data-id="${esc(a.id)}">${a.status==="Problem"?"Ansehen":"Prüfen"}</button>`}));
   fdList().forEach(({m,i})=>{ if(i.next==="anwalt") att.push({c:"bad",t:"Anwalt einschalten",s:`${m.name} · ${eur(i.offen)} offen · 2 Mahnungen erfolglos`,a:`<button class="btn sm" data-act="anwNew" data-m="${esc(m.id)}">Anwalt beauftragen</button>`}); else if(i.next==="mahnung2"&&i.fristUm) att.push({c:"bad",t:"Frist der 1. Mahnung abgelaufen",s:`${m.name} · ${eur(i.offen)} offen`,a:`<button class="btn sm" data-act="mhNew" data-m="${esc(m.id)}">2. Mahnung</button>`}); else if(i.next==="senden") att.push({c:"warn",t:"Mahnung noch nicht versendet",s:`${m.name} · ${eur(i.offen)}`,a:`<button class="btn sm" data-act="mhOpen" data-id="${esc(i.last.id)}">Senden</button>`}); });
   try{ insAttention(att); }catch(e){ console.warn(e); }
+  try{ if(typeof extraAttention==="function") extraAttention(att); }catch(e){ console.warn(e); }
+  try{ if(typeof vtAttention==="function") vtAttention(att); }catch(e){ console.warn(e); }
   { const fa=finAtt(y).filter(x=>x.c==="bad"); if(fa.length) att.push({c:"bad",t:fa[0].t,s:fa[0].s,a:`<button class="btn sm" data-act="go" data-tab="geld" data-sub="hub">Finanzen öffnen</button>`}); }
   const noTel=ms.filter(m=>!m.telefon).length;
   if(noTel) att.push({c:"neutral",t:`${noTel} Mieter ohne Telefonnummer`,s:"Ohne Nummer funktionieren die WhatsApp-Knöpfe nicht.",a:`<button class="btn sm" data-act="go" data-tab="haeuser" data-sub="mieter">Mieter öffnen</button>`});
@@ -3300,7 +3392,7 @@ function vObjekt(oid){
   const tk=objTickets(oid), open=tk.filter(t=>t.s!=="Erledigt").length;
   const med=list("medien").filter(x=>x.objektId===oid), prot=list("protokolle").filter(p=>p.objektId===oid);
   const cov=coverOf(oid), sub=st.osub||"uebersicht";
-  const tabs=`<div class="seg" role="group">${[["uebersicht","Übersicht"],["mieter","Mieter & Verträge"],["tickets",`Tickets (${open})`],["medien",`Fotos & Videos (${med.length})`],["dokumente",`Dokumente (${dokAll(oid).length})`],["inventar",`Inventar (${list("inventar").filter(x=>x.objektId===oid).length})`],["protokolle",`Protokolle (${prot.length})`]].map(([v,l])=>`<button data-act="osub" data-v="${v}" aria-pressed="${sub===v}">${esc(l)}</button>`).join("")}</div>`;
+  const tabs=`<div class="seg" role="group">${[["uebersicht","Übersicht"],["mieter","Mieter & Verträge"],["tickets",`Tickets (${open})`],["medien",`Fotos & Videos (${med.length})`],["dokumente",`Dokumente (${dokAll(oid).length})`],["inventar",`Inventar (${list("inventar").filter(x=>x.objektId===oid).length})`],["protokolle",`Protokolle (${prot.length})`],["wartung","Wartung"],["begehung","Begehung"]].map(([v,l])=>`<button data-act="osub" data-v="${v}" aria-pressed="${sub===v}">${esc(l)}</button>`).join("")}</div>`;
   let body="";
   if(sub==="mieter"){
     body=`<div class="row"><button class="btn pri" data-act="scanVertrag">Vertrag scannen</button><button class="btn" data-act="new" data-col="mieter">Mieter anlegen</button></div>
@@ -3315,6 +3407,10 @@ function vObjekt(oid){
     ${med.length?PH.map(ph=>{const xs=med.filter(x=>(x.phase||"Sonstiges")===ph).sort((a,b)=>String(b.datum).localeCompare(String(a.datum)));return xs.length?`<section class="list"><div class="sec-title"><h3>${esc(ph)}</h3><span>${xs.length}</span></div><div class="gallery">${xs.map(x=>`<div class="g" data-act="medienOpen" data-id="${esc(x.id)}" role="button" tabindex="0">${x.typ==="video"?`<video src="${esc(assetUrl(x.asset))}" muted preload="metadata"></video><span class="play">▶</span>`:`<img src="${esc(assetUrl(x.asset))}" alt="${esc(x.titel||"Foto")}" loading="lazy">`}<span class="cap">${esc(x.wohnungId?(wohn(x.wohnungId)?.lage||x.wohnungId):"Haus")}${x.titel?` · ${esc(x.titel)}`:""}</span></div>`).join("")}</div></section>`:"";}).join(""):emptyBox("Noch keine Fotos oder Videos. Dokumentiere den Zustand vor der Vermietung, beim Einzug und beim Auszug.")}`;
   } else if(sub==="dokumente"){
     body=vDokumente(oid);
+  } else if(sub==="wartung"&&typeof vWartung==="function"){
+    body=vWartung(oid);
+  } else if(sub==="begehung"&&typeof vBegehung==="function"){
+    body=vBegehung(oid);
   } else if(sub==="inventar"){
     body=vInventar(oid);
   } else if(sub==="protokolle"){
@@ -3359,6 +3455,7 @@ function vMieter(mid){
     <dt>Sprache</dt><dd>${esc((LANGS.find(x=>x[0]===mL(m))||LANGS[0])[1])}</dd><dt>WhatsApp-Einwilligung</dt><dd>${m.waOk?"liegt vor":"fehlt"}</dd>
     <dt>Benachrichtigungen</dt><dd>${m.aktiv===false?"Zugang deaktiviert":(m.stumm?"stumm":[m.markt!==false?"Marktplatz":"",m.feiern!==false?"Feiern":""].filter(Boolean).join(", ")||"nur Vermieter-Infos")}</dd>
   </dl>${m.notiz?`<p class="small" style="margin-bottom:0">${esc(m.notiz)}</p>`:""}</div>
+  ${typeof mieterExtra==="function"?mieterExtra(m):""}
   <div class="card"><h3>So entsteht der Score</h3><p class="small" style="margin:6px 0 0">70 % Zahlungspünktlichkeit (${sc.pk} von ${sc.zs} Monaten pünktlich = ${sc.rate} %) + 30 % Hausordnung (${sc.v} Verstoß/Verstöße, je −25 %). Nur für dich sichtbar.</p></div>
   ${(()=>{ const fo=list("ausgaben").filter(a=>a.wohnungId===m.wohnungId&&isMK(a)&&(!m.beginn||String(a.datum)>=m.beginn)); return fo.length?`<section class="card"><h3>Forderungen an Mieter</h3>${fo.map(costItem).join("")}</section>`:""; })()}
   <section class="list"><div class="spread"><h2>Mieteingänge</h2><button class="btn sm" data-act="new" data-col="zahlungen" data-pre-wohnung-id="${esc(m.wohnungId)}">Eintragen</button></div>${zs.length?zs.map(zItem).join(""):emptyBox("Noch keine Einträge.")}</section>
@@ -3441,6 +3538,10 @@ const GELD_SEG=[["ausgaben","Ausgaben"],["miete","Mieteingänge"],["jahr","Jahre
 function vGeld(){
   if(!FIN_SUB[st.sub.geld]) return vFinHub();
   if(st.sub.geld==="haus") return vFinHaus();
+  if(st.sub.geld==="nk") return vNK();
+  if(st.sub.geld==="mietanp") return vMietanp();
+  if(st.sub.geld==="anlv") return vAnlV();
+  if(st.sub.geld==="rendite") return vRendite();
   const filt=`<div class="filters"><select data-change="year" aria-label="Jahr">${yearOpts()}</select><select data-change="fObj" aria-label="Objekt"><option value="">Alle Objekte</option>${objOptions(st.fObj)}</select><button class="btn sm" data-act="stb">An Steuerberater</button></div>`;
   if(st.sub.geld==="jahr") return `${finBack(st.sub.geld)}${filt}${vJahr()}`;
   if(st.sub.geld==="steuer") return `${finBack(st.sub.geld)}<div class="filters"><select data-change="year" aria-label="Jahr">${yearOpts()}</select></div>${vSteuer()}`;
@@ -3462,7 +3563,7 @@ function vGeld(){
   <div class="row"><button class="btn pri" data-act="scanBeleg">Beleg scannen</button><button class="btn" data-act="new" data-col="ausgaben">Manuell erfassen</button><button class="btn" data-act="stb">An Steuerberater senden</button></div>
   ${ks.length?`<div class="card bars">${ks.map(([k,v])=>`<div class="bar"><span>${esc(k)}</span><div class="track"><div class="fill" style="width:${Math.max(2,v/mx*100)}%"></div></div><span class="amt num">${eur(v)}</span></div>`).join("")}</div>`:""}
   <div class="list">${as.length?as.map(a=>`<div class="item s-${a.umlage?"ok":"neutral"}"><div class="head"><div><b>${esc(a.beschreibung||a.haendler||a.kategorie)}</b><div class="meta">${esc(fmtDate(a.datum))} · ${esc(objName(a.objektId))}${a.wohnungId?` · ${esc(wohn(a.wohnungId)?.lage||a.wohnungId)}`:" · ganzes Haus"}${a.haendler?` · ${esc(a.haendler)}`:""}</div></div><b class="num">${eur(a.betrag)}</b></div>
-    <div class="row">${a.belegAsset?`<a href="${esc(assetUrl(a.belegAsset))}" target="_blank" rel="noopener"><img class="thumb" src="${esc(assetUrl(a.belegAsset))}" alt="Beleg"></a>`:""}<span class="pill neutral">${esc(a.kategorie||"")}</span>${isMK(a)?`<span class="pill ${a.erstattet?"ok":"warn"}">${a.erstattet?"erstattet":"trägt Mieter"}</span>`:(a.umlage?`<span class="pill ok">umlagefähig</span>`:"")}${a.ticketId&&st.data[a.ticketCol]?.[a.ticketId]?`<button class="btn sm" data-act="openTicket" data-col="${esc(a.ticketCol)}" data-id="${esc(a.ticketId)}">Ticket ${esc(tNr(st.data[a.ticketCol][a.ticketId]))}</button>`:""}<button class="btn sm ghost" data-act="edit" data-col="ausgaben" data-id="${esc(a.id)}">Bearbeiten</button></div></div>`).join(""):emptyBox("Noch keine Ausgaben. Fotografiere deinen ersten Kassenbon mit „Beleg scannen“.")}</div>`;
+    <div class="row">${a.belegAsset?`<a href="${esc(assetUrl(a.belegAsset))}" target="_blank" rel="noopener"><img class="thumb" src="${esc(assetUrl(a.belegAsset))}" alt="Beleg"></a>`:""}<span class="pill neutral">${esc(a.kategorie||"")}</span>${isMK(a)?`<span class="pill ${a.erstattet?"ok":"warn"}">${a.erstattet?"erstattet":"trägt Mieter"}</span>`:(a.umlage?`<span class="pill ok">umlagefähig</span>`:"")}${a.privatAbzug>0?`<span class="pill warn">− ${eur(a.privatAbzug)} privat aussortiert</span>`:""}${a.ticketId&&st.data[a.ticketCol]?.[a.ticketId]?`<button class="btn sm" data-act="openTicket" data-col="${esc(a.ticketCol)}" data-id="${esc(a.ticketId)}">Ticket ${esc(tNr(st.data[a.ticketCol][a.ticketId]))}</button>`:""}<button class="btn sm ghost" data-act="edit" data-col="ausgaben" data-id="${esc(a.id)}">Bearbeiten</button></div></div>`).join(""):emptyBox("Noch keine Ausgaben. Fotografiere deinen ersten Kassenbon mit „Beleg scannen“.")}</div>`;
 }
 
 function vJahr(){
@@ -3997,14 +4098,14 @@ Falls Sie Schwierigkeiten haben, den Betrag auf einmal zu zahlen, melden Sie sic
 }
 function mhPdf({m,betreff,body,sigDu}){
   const {jsPDF}=window.jspdf; const d=new jsPDF({unit:"mm",format:"a4"}); const c=st.cfg||{};
-  if(st.logoDu){ try{ d.addImage(st.logoDu,"PNG",170,14,18,20.6); }catch(e){} }
+  jhLogo(d,170,14,18,20.6);
   d.setFont("helvetica","normal"); d.setFontSize(8.5); d.setTextColor(90);
   d.text([c.name,c.adresse].filter(Boolean).join(" · ")||"Absender im Profil eintragen",20,40);
   d.setTextColor(0); d.setFontSize(11); d.text(addrLines(m),20,48);
   d.text(`${c.ort||""}${c.ort?", ":""}${fmtDate(today())}`,190,80,{align:"right"});
   d.setFont("helvetica","bold"); const bl=d.splitTextToSize(betreff,170); d.text(bl,20,92); d.setFont("helvetica","normal");
   const LH=11*0.3528*1.4; let y=92+bl.length*LH+6;
-  const foot=()=>{ const contact=[c.telefon,c.email].filter(Boolean).join(" · "); d.setFontSize(8.5); d.setTextColor(90); if(contact) d.text(contact,20,285); d.setFontSize(11); d.setTextColor(0); };
+  const foot=()=>{ const contact=[c.telefon,c.email].filter(Boolean).join(" · "); d.setFontSize(8.5); d.setTextColor(90); if(contact) void contact; d.setFontSize(11); d.setTextColor(0); };
   for(const ln of d.splitTextToSize(body+"\n\nMit freundlichen Grüßen",170)){ if(y>270){ foot(); d.addPage(); y=25; } d.text(ln,20,y); y+=LH; }
   if(y+26>275){ foot(); d.addPage(); y=25; }
   if(sigDu){ try{ d.addImage(sigDu,"PNG",20,y,55,20); }catch(e){} } y+=22; d.setDrawColor(150); d.line(20,y,85,y); y+=5; d.text(c.name||"",20,y);
@@ -4307,6 +4408,16 @@ const S_FN=[
  ["Pakete","Mein Paket ansehen, upgraden, Steuer-Plus","paket pakete abo upgrade preis tarif premium pro plus start",()=>openPakete()],
  ["Finanzen","Geld, Steuer, Kaufverträge, Kredite, Steuerberater an einem Ort","finanzen geld finanzierung kredit darlehen steuer steuerberater",()=>goView("geld","hub")],
  ["Kredit & laufende Kosten","Kreditvertrag, Stadtwerke, Versicherung hochladen","kredit darlehen rate bank finanzierung stadtwerke versicherung laufende kosten fixkosten",()=>ACT.finKosten()],
+ ["Datensicherung","Automatische Sicherung, Gelöschtes zurückholen, Komplett-Sicherung","backup sicherung datensicherung wiederherstellen geloescht zurueckholen export",()=>ACT.bkOpen()],
+ ["Fristen & Termine","Alle Fristen, in den Handy-Kalender übernehmen","fristen termine kalender erinnerung ics deadline",()=>ACT.fristen()],
+ ["Rendite je Wohnung","Welche Wohnung lohnt sich","rendite cashflow lohnt leerstand gewinn",()=>goView("geld","rendite")],
+ ["Datenschutzhinweise für Mieter","Muster nach Art. 13 DSGVO, als PDF","datenschutz dsgvo hinweise mieter information art 13",()=>ACT.dsInfo()],
+ ["Vorgaben für Verträge","Preise für Stellplatz, Garage, Zwischenzähler (automatische Verträge)","vertrag vorgaben preise stellplatz garage zwischenzaehler automatik automatisch",()=>ACT.vtVorg()],
+ ["Nebenkostenabrechnung","Betriebskosten je Haus und Jahr abrechnen","nebenkosten betriebskosten abrechnung nk umlage heizkosten",()=>goView("geld","nk")],
+ ["Miete anpassen","Mieterhöhung nach Mietspiegel oder Index","miete erhoehen mieterhoehung mietspiegel index indexmiete kappung anpassen",()=>goView("geld","mietanp")],
+ ["Anlage V & Grundsteuer","Werte für die Steuererklärung, Grundsteuerbescheid","anlage v elster steuererklaerung grundsteuer bescheid hebesatz",()=>goView("geld","anlv")],
+ ["Wartungsplan","Heizung, Schornsteinfeger, Rauchmelder, Dachrinne","wartung wartungsplan heizung schornstein rauchmelder dachrinne garantie gewaehrleistung pruefung",()=>{ const o=list("objekte")[0]; if(o){ closeSheet(); st.tab="haeuser"; st.objekt=o.id; st.osub="wartung"; render(); } }],
+ ["Hausbegehung","Haus Punkt für Punkt prüfen, Mängel → Tickets","begehung hausbegehung kontrolle rundgang maengel pruefen checkliste",()=>{ const o=list("objekte")[0]; if(o){ closeSheet(); st.tab="haeuser"; st.objekt=o.id; st.osub="begehung"; render(); } }],
  ["Ausgaben","Alle Kosten mit Belegen","ausgaben kosten belege",()=>goView("geld","ausgaben")],
  ["Mieteingänge","Miete, Rückstände, Monat anlegen","miete mieteingang zahlung eingang rueckstand",()=>goView("geld","miete")],
  ["Kaufvertrag scannen","Kaufvertrag fotografieren – Kaufpreis, Übergabe, Baujahr automatisch","kaufvertrag notar kauf kaufpreis urkunde grunderwerbsteuer scannen hochladen",()=>ACT.scanKauf({})],
@@ -4834,7 +4945,7 @@ async function insShareFotos(x){
 }
 async function insPdf(x){
   const w=wohn(x.wohnungId), o=st.data.objekte[x.objektId]||{}, c=st.cfg||{};
-  const {jsPDF}=window.jspdf; const d=new jsPDF({unit:"mm",format:"a4"});
+  const {jsPDF}=window.jspdf; const d=new jsPDF({unit:"mm",format:"a4"}); d.__footPublic=true;
   const img=async a=>{ try{ const r=await fetch(assetUrl(a)); const b=await compress(await r.blob(),1400); const du=await blobToDataUrl(b); const i=new Image(); i.src=du; await i.decode(); return {du,r:i.naturalHeight/i.naturalWidth}; }catch(e){ return null; } };
   d.setFont("helvetica","bold"); d.setFontSize(18); d.text(d.splitTextToSize(x.titel||"Wohnung zu vermieten",170),20,22);
   d.setFont("helvetica","normal"); d.setFontSize(10); d.setTextColor(90); d.text(`${(String(o.adresse||"").match(/\d{5}\s+[^,]+/)||[""])[0]} · ${x.etage||""}`,20,34); d.setTextColor(0);
@@ -4844,13 +4955,13 @@ async function insPdf(x){
   F.forEach(([l,v],i)=>{ const cx=20+(i%2)*85, cy=y+Math.floor(i/2)*6.5; d.setTextColor(90); d.text(l,cx,cy); d.setTextColor(0); d.setFont("helvetica","bold"); d.text(/miete|kosten|kaution/i.test(l)?eur(v):v,cx+38,cy); d.setFont("helvetica","normal"); });
   y+=Math.ceil(F.length/2)*6.5+4;
   const lines=d.splitTextToSize(insVollText(x,o),170);
-  for(const ln of lines){ if(y>280){ d.addPage(); y=20; } d.text(ln,20,y); y+=5.2; }
+  for(const ln of lines){ if(y>276){ d.addPage(); y=20; } d.text(ln,20,y); y+=5.2; }
   const rest=(x.fotos||[]).slice(1,13);
   if(rest.length){ d.addPage(); y=20; d.setFont("helvetica","bold"); d.text("Fotos",20,y); d.setFont("helvetica","normal"); y+=6; let col=0;
-    for(const f of rest){ const im=await img(f.asset); if(!im) continue; const W=82, H=Math.min(62,W*im.r); if(y+H>285){ d.addPage(); y=20; } d.addImage(im.du,"JPEG",20+col*88,y,H/im.r>W?W:H/im.r,H); d.setFontSize(8.5); d.setTextColor(90); d.text(f.raum||"",20+col*88,y+H+4); d.setTextColor(0); d.setFontSize(10.5); col++; if(col===2){ col=0; y+=H+9; } } }
+    for(const f of rest){ const im=await img(f.asset); if(!im) continue; const W=82, H=Math.min(62,W*im.r); if(y+H>279){ d.addPage(); y=20; } d.addImage(im.du,"JPEG",20+col*88,y,H/im.r>W?W:H/im.r,H); d.setFontSize(8.5); d.setTextColor(90); d.text(f.raum||"",20+col*88,y+H+4); d.setTextColor(0); d.setFontSize(10.5); col++; if(col===2){ col=0; y+=H+9; } } }
   d.setFontSize(9); d.setTextColor(90);
   const kontakt=["Besichtigung nach Terminabsprache",c.name,c.telefon,c.email,x.exposeUrl?`Video-Rundgang: ${x.exposeUrl}`:""].filter(Boolean).join(" · ");
-  const pc=d.getNumberOfPages(); for(let i=1;i<=pc;i++){ d.setPage(i); d.text(d.splitTextToSize(kontakt,170),20,290); }
+  const pc=d.getNumberOfPages(); for(let i=1;i<=pc;i++){ d.setPage(i); void kontakt; }
   const blob=d.output("blob"), name=`Expose_${(w.lage||w.id).replace(/\W+/g,"_")}.pdf`;
   const file=new File([blob],name,{type:"application/pdf"});
   if(navigator.canShare&&navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file],title:x.titel||"Exposé"}); return; }catch(e){ if(e?.name==="AbortError") return; } }
@@ -4867,7 +4978,7 @@ function insLeute(x){
   <section class="list"><div class="sec-title"><h3>Interessenten</h3><span>${L.length}</span></div>
    <div class="row"><button class="btn pri" id="il_new">Interessent eintragen</button></div>
    ${L.length?L.map(p=>`<div class="item s-${p.status==="Zusage"?"ok":p.status==="Absage"?"neutral":"warn"}"><div class="head"><div style="flex:1;min-width:0"><b>${esc(p.name)}</b><div class="meta">${[p.tel,p.mail,p.personen?p.personen+" Pers.":"",p.slot?slotTxt({dt:p.slot}):"",p.notiz].filter(Boolean).map(esc).join(" · ")}</div></div><select data-pst="${esc(p.id)}" aria-label="Status">${INS_ST.map(s=>`<option${s===p.status?" selected":""}>${s}</option>`).join("")}</select></div>
-    <div class="row">${waBtn(p.tel,insWaEinl(x,p),"Termine senden")}${p.slot?waBtn(p.tel,insWaBest(x,p),"Termin bestätigen"):""}<button class="btn sm" data-act="insSelbst" data-v="${esc(p.id)}">Selbstauskunft</button>${p.status==="Zusage"?`<button class="btn sm pri" data-act="insMieter" data-v="${esc(p.id)}">Als Mieter übernehmen</button>`:""}${p.status!=="Zusage"?waBtn(p.tel,insWaAbs(x,p),"Absage"):""}<button class="btn sm ghost" data-pedit="${esc(p.id)}">Bearbeiten</button></div></div>`).join(""):emptyBox("Noch keine Interessenten. Anfragen von Kleinanzeigen oder aus dem Exposé hier eintragen.")}</section>`;
+    <div class="row">${waBtn(p.tel,insWaEinl(x,p),"Termine senden")}${p.slot?waBtn(p.tel,insWaBest(x,p),"Termin bestätigen"):""}<button class="btn sm" data-act="insSelbst" data-v="${esc(p.id)}">Selbstauskunft</button><button class="btn sm" data-act="insPruef" data-v="${esc(p.id)}">${p.pruefung?`Prüfung: ${p.pruefung.ampel==="grün"?"passt":p.pruefung.ampel==="gelb"?"genauer prüfen":"Risiko"}`:"Unterlagen prüfen (KI)"}</button>${p.status==="Zusage"?`<button class="btn sm pri" data-act="insMieter" data-v="${esc(p.id)}">Als Mieter übernehmen</button>`:""}${p.status!=="Zusage"?waBtn(p.tel,insWaAbs(x,p),"Absage"):""}<button class="btn sm ghost" data-pedit="${esc(p.id)}">Bearbeiten</button></div></div>`).join(""):emptyBox("Noch keine Interessenten. Anfragen von Kleinanzeigen oder aus dem Exposé hier eintragen.")}</section>`;
 }
 function insWaEinl(x,p){ const sl=(x.slots||[]).filter(s=>s.dt>new Date().toISOString().slice(0,16)).sort((a,b)=>a.dt.localeCompare(b.dt)); const w=wohn(x.wohnungId); return `Hallo ${p.name},\n\nvielen Dank für Ihr Interesse an der Wohnung${x.titel?` „${x.titel}“`:""}.${x.exposeUrl?`\n\nHier können Sie sich die Wohnung schon vorab im Video-Rundgang ansehen:\n${x.exposeUrl}`:""}\n\n${sl.length?`Besichtigungstermine:\n${sl.map((s,i)=>`${i+1}) ${slotTxt(s)}`).join("\n")}\n\nBitte antworten Sie mit der Nummer des passenden Termins.`:"Wann passt Ihnen eine Besichtigung?"}\n\nViele Grüße\n${st.cfg?.name||""}`; }
 function insWaBest(x,p){ const o=st.data.objekte[x.objektId]||{}; return `Hallo ${p.name},\n\nhiermit bestätige ich Ihren Besichtigungstermin am ${slotTxt({dt:p.slot})}.\nAdresse: ${o.adresse||""}${wohn(x.wohnungId)?.lage?`, ${wohn(x.wohnungId).lage}`:""}\n\nBitte bringen Sie, wenn möglich, eine ausgefüllte Selbstauskunft und Einkommensnachweise mit.\n\nViele Grüße\n${st.cfg?.name||""}`; }
@@ -4931,7 +5042,7 @@ function insWire(){
     B.querySelectorAll("[data-sdel]").forEach(b=>b.onclick=async()=>{ x.slots=(x.slots||[]).filter(s=>s.dt!==b.dataset.sdel); await insSave(x); insRender(); });
     $("#il_new").onclick=()=>insPerson(null);
     B.querySelectorAll("[data-pedit]").forEach(b=>b.onclick=()=>insPerson(b.dataset.pedit));
-    B.querySelectorAll("[data-pst]").forEach(s=>s.onchange=async()=>{ const p=x.leute.find(q=>q.id===s.dataset.pst); if(p){ p.status=s.value; await insSave(x,"Status: "+s.value); insRender(); } });
+    B.querySelectorAll("[data-pst]").forEach(s=>s.onchange=async()=>{ const p=x.leute.find(q=>q.id===s.dataset.pst); if(p){ p.status=s.value; if(s.value==="Absage"&&p.pruefung){ delete p.pruefung; toast("Prüfergebnis gelöscht (Datenschutz)"); } await insSave(x,"Status: "+s.value); insRender(); } });
   }
 }
 /* Startseite: was ist bei Neuvermietungen fällig? */
@@ -5026,7 +5137,7 @@ async function saveProt(){
 async function urlToDataUrl(u){ try{ const r=await fetch(u); if(!r.ok) return null; return await blobToDataUrl(await r.blob()); }catch(e){ return null; } }
 async function protPdf(id){
   const p=st.data.protokolle[id]; if(!p) return; toast("PDF wird erstellt …");
-  const {jsPDF}=window.jspdf; const d=new jsPDF({unit:"mm",format:"a4"}); const c=st.cfg||{}; let y=20; if(st.logoDu){ try{ d.addImage(st.logoDu,"PNG",172,10,16,18.3); }catch(e){} }
+  const {jsPDF}=window.jspdf; const d=new jsPDF({unit:"mm",format:"a4"}); const c=st.cfg||{}; let y=20; jhLogo(d,172,10,16,18.3);
   const line=(t,size=10,bold=false)=>{ d.setFont("helvetica",bold?"bold":"normal"); d.setFontSize(size); const ls=d.splitTextToSize(t,170); if(y+ls.length*5>280){ d.addPage(); y=20; } d.text(ls,20,y); y+=ls.length*(size*0.45)+2; };
   line(`${p.art==="Übergabe (Einzug)"?"Wohnungsübergabeprotokoll (Einzug)":"Wohnungsrücknahmeprotokoll (Auszug)"}`,15,true);
   line(`Objekt: ${objName(p.objektId)} – ${st.data.objekte[p.objektId]?.adresse||""}`); line(`Wohnung: ${wohnLabel(p.wohnungId)}`); line(`Datum: ${fmtDate(p.datum)}`); line(`Vermieter: ${c.name||""}   ·   Mieter: ${p.mieterName||""}`); y+=2;
@@ -5039,7 +5150,7 @@ async function protPdf(id){
   if(y+45>280){ d.addPage(); y=20; }
   line("Unterschriften",12,true); const sy=y;
   for(const [i,w] of [["sigVermieter","Vermieter"],["sigMieter","Mieter"]].entries()){ const k=w[0]; const du=p[k]?await urlToDataUrl(assetUrl(p[k])):null; const x=20+i*90; if(du){ try{ d.addImage(du,"PNG",x,sy,70,25); }catch(e){} } d.line(x,sy+27,x+70,sy+27); d.setFontSize(9); d.text(w[1],x,sy+32); }
-  d.setFontSize(8); d.setTextColor(120); d.text(`Erstellt mit JoumHome · ${fmtDate(today())}`,20,290);
+  d.setFontSize(8); d.setTextColor(120); d.__footNote=`Erstellt mit JoumHome · ${fmtDate(today())}`;
   await saveFile(`${p.art.startsWith("Übergabe")?"Uebergabeprotokoll":"Ruecknahmeprotokoll"}_${(p.mieterName||"").replace(/\s+/g,"_")}_${p.datum}.pdf`,d.output("blob"));
 }
 function openPlan(){
@@ -5120,6 +5231,9 @@ async function umzugExport(){
 
 /* ---------- Start ---------- */
 setLang(st.lang);
+const b64ab=ab=>{ const u=new Uint8Array(ab); let s=""; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(s); };
+fetch("font-uni.ttf").then(r=>r.ok?r.arrayBuffer():null).then(ab=>{ if(ab) st.uniF=b64ab(ab); }).catch(()=>{});
+fetch("font-uni-bold.ttf").then(r=>r.ok?r.arrayBuffer():null).then(ab=>{ if(ab) st.uniFB=b64ab(ab); }).catch(()=>{});
 fetch("logo-mark-dark.png").then(r=>r.ok?r.blob():null).then(b=>b&&blobToDataUrl(b)).then(du=>{ if(du) st.logoDu=du; }).catch(()=>{});
 (async()=>{
   const C=window.claude;
@@ -5154,9 +5268,14 @@ fetch("logo-mark-dark.png").then(r=>r.ok?r.blob():null).then(b=>b&&blobToDataUrl
   if(st.role==="mieter") return;
   db.doc("config/bank").onSnapshot(s=>{ st.bank=s.exists?s.data():{}; later(); },()=>{});
   db.doc("config/vermieter").onSnapshot(s=>{ st.cfg=s.exists?s.data():{}; later(); },()=>{});
+  if(isAdmin()) db.doc("config/belegregeln").onSnapshot(s=>{ st.bregeln=s.exists?s.data():{}; },()=>{});
   if(isAdmin()) db.doc("config/paket").onSnapshot(s=>{ st.paket=s.exists?s.data():{}; later(); },()=>{});
+  if(st.role==="master") db.doc("config/backup").onSnapshot(s=>{ st.backup=s.exists?s.data():{}; },()=>{ st.backup={}; });
+  if(isAdmin()) db.doc("config/vertragsvorgaben").onSnapshot(s=>{ st.vtVorg=s.exists?s.data():{}; setTimeout(()=>{ if(typeof vtRetry==="function"&&st.loaded) vtRetry(); },1500); },()=>{});
+  if(isAdmin()) db.doc("config/markt").onSnapshot(s=>{ st.markt=s.exists?s.data():{}; later(); },()=>{});
   if(st.role==="master") db.doc("config/einkommen").onSnapshot(s=>{ st.eink=s.exists?s.data():{}; later(); },()=>{});
 })();
 </script>
+<script src="erweiterungen.js"></script>
 </body>
 </html>

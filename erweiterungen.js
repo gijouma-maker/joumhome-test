@@ -738,7 +738,7 @@ function belegZuordnung(form,v,o){
   if(!form||form!==F) return; const ctx=o?.hidden?.ticketId?{col:o.hidden.ticketCol,id:o.hidden.ticketId}:null;
   const L=belegTicketsOf(); const byNr=nr=>L.find(t=>String(t.d.nr)===String(nr).replace("#",""));
   const vor=ctx?L.find(t=>t.col===ctx.col&&t.d.id===ctx.id)||{col:ctx.col,d:st.data[ctx.col]?.[ctx.id]}:(v.ticketNr?byNr(v.ticketNr):null);
-  if(!ctx&&!v.vermietung&&!vor) return;
+  if(!ctx&&!v.vermietung&&!vor){ belegVerbund(form,v); return; }
   let box=document.getElementById("zuoBox"); if(!box){ box=document.createElement("div"); box.id="zuoBox"; box.className="card"; box.style.cssText="display:flex;flex-direction:column;gap:8px"; const anchor=document.getElementById("posBox")||document.getElementById("aiBox"); if(anchor) anchor.insertAdjacentElement("afterend",box); else $("#sheet .fields")?.insertAdjacentElement("beforebegin",box); }
   const sel0=vor?.d?`${vor.col}|${vor.d.id}`:"";
   const title=v.vermietung?`${v.vermietArt||"Mietfahrzeug / Mietgerät"} erkannt`:ctx?"Wer zahlt diese Kosten?":"Passt zu einem Ticket?";
@@ -760,7 +760,43 @@ function belegZuordnung(form,v,o){
   $("#zuo_t").onchange=apply;
   if(v.vermietung&&(vor||ctx)){ const kk=document.getElementById("f_kategorie"); if(kk) kk.value="Reparatur/Handwerker"; }
   apply();
+  belegVerbund(form,v);
   if(v.vermietung||vor){ const t=document.getElementById("aiTxt"); if(t) t.textContent=(t.textContent||"")+` · ${v.vermietung?(v.vermietArt||"Miete")+" erkannt":"Ticket #"+vor.d.nr+" vorgeschlagen"} – bitte unten zuordnen und entscheiden, wer zahlt.`; }
+}
+
+/* =========================================================
+   13) ZUSAMMENGEHÖRIGE BELEGE (z. B. Tür + Anhänger am selben Tag)
+   ========================================================= */
+const SPERR_RE=/\b(t[üu]r|haust[üu]r|zarge|fenster|badewanne|duschwanne|dusch|waschmaschine|trockner|k[üu]hlschrank|herd|backofen|sp[üu]lmaschine|k[üu]che|schrank|sofa|couch|matratze|bett|heizk[öo]rper|boiler|therme|gipskarton|rigips|osb|platten|laminat|parkett|fliesen|balken|bretter|kantholz|zement|estrich|beton|m[öo]bel|regal|zaun|t[üu]rblatt|container|sperrm[üu]ll)/i;
+const MIET_RE=/\b(transporter|anh[äa]nger|mietwagen|sprinter|kleinbus|lkw|vermietung|mietger[äa]t|leihger[äa]t|container)\b/i;
+const istSperrig=a=>!!a.sperrig||SPERR_RE.test([a.beschreibung,a.sperrigArtikel,...(a.positionen||[]).filter(p=>!p.privat).map(p=>p.text)].join(" "));
+const istMiete=a=>!!a.vermietung||MIET_RE.test([a.beschreibung,a.haendler,a.vermietArt].join(" "));
+const kurz=a=>`${a.vermietArt||a.sperrigArtikel||a.beschreibung||a.kategorie||"Beleg"}${a.haendler?" ("+a.haendler+")":""}, ${eur(a.betrag)}`.slice(0,80);
+function partnerBelege(datum,rolle,eigeneId){
+  if(!datum) return [];
+  return list("ausgaben").filter(a=>a.id!==eigeneId&&a.datum&&Math.abs(days(a.datum,datum))<=1&&(rolle==="miete"?istSperrig(a):istMiete(a))).sort((a,b)=>Math.abs(days(a.datum,datum))-Math.abs(days(b.datum,datum)));
+}
+function belegVerbund(form,v){
+  if(!form||form!==F) return; const datum=val("f_datum")||v.datum; const rolle=v.vermietung?"miete":(v.sperrig?"kauf":null); if(!rolle) return;
+  form.hidden=form.hidden||{}; Object.assign(form.hidden,{vermietung:!!v.vermietung,vermietArt:v.vermietArt||null,sperrig:!!v.sperrig,sperrigArtikel:v.sperrigArtikel||null});
+  const P=partnerBelege(datum,rolle,null); if(!P.length) return;
+  let box=document.getElementById("vbBox"); if(!box){ box=document.createElement("div"); box.id="vbBox"; box.className="card"; box.style.cssText="display:flex;flex-direction:column;gap:8px"; const anchor=document.getElementById("zuoBox")||document.getElementById("posBox")||document.getElementById("aiBox"); if(anchor) anchor.insertAdjacentElement("afterend",box); }
+  box.innerHTML=`<b>${rolle==="miete"?"Passender Einkauf am selben Tag":"Am selben Tag gemietet"}</b>
+   <div class="small">${rolle==="miete"?`Der ${esc(v.vermietArt||"Transporter")} wurde vermutlich für diesen sperrigen Einkauf gebraucht:`:`Für ${esc(v.sperrigArtikel||"diesen Einkauf")} wurde vermutlich das gemietet:`}</div>
+   ${P.slice(0,4).map((a,i)=>{ const t=a.ticketId?st.data[a.ticketCol]?.[a.ticketId]:null; return `<label class="nkfx"><input type="radio" name="vb" value="${esc(a.id)}"${i===0?" checked":""}> <span>${esc(fmtDate(a.datum))} · ${esc(kurz(a))}${t?` · Ticket #${esc(String(t.nr))}`:""} · ${isMK(a)?"Mieter zahlt":"Vermieter"}</span></label>`; }).join("")}
+   <label class="nkfx"><input type="radio" name="vb" value=""> <span>Gehört nicht zusammen</span></label>
+   <div class="small">Verknüpfte Belege bekommen dasselbe Ticket, dieselbe Wohnung und denselben Kostenträger.</div>`;
+  const pick=()=>{ const id=box.querySelector("input[name=vb]:checked")?.value; return id?st.data.ausgaben[id]:null; };
+  const uebernehmen=()=>{ const a=pick(); if(!a) return; if(rolle==="miete"&&a.ticketId){ const s0=document.getElementById("zuo_t"); const key=`${a.ticketCol}|${a.ticketId}`; if(s0){ if(![...s0.options].some(o=>o.value===key)){ const t=st.data[a.ticketCol]?.[a.ticketId]; s0.insertAdjacentHTML("beforeend",`<option value="${esc(key)}">#${esc(String(t?.nr||""))} ${esc(tTitle(a.ticketCol,t||{}).slice(0,50))}</option>`); } s0.value=key; s0.dispatchEvent(new Event("change")); } }
+    const fo=document.getElementById("f_objektId"); if(fo&&a.objektId&&fo.value!==a.objektId){ fo.value=a.objektId; fo.dispatchEvent(new Event("change",{bubbles:true})); } setTimeout(()=>{ const fw=document.getElementById("f_wohnungId"); if(fw&&a.wohnungId) fw.value=a.wohnungId; },60);
+    if(rolle==="miete"){ const k=document.getElementById("f_kostentraeger"); if(k){ k.value=a.kostentraeger||"Vermieter"; k.dispatchEvent(new Event("change",{bubbles:true})); } document.querySelectorAll("#zuoBox [data-zk]").forEach(b=>b.classList.toggle("pri",b.dataset.zk===(a.kostentraeger||"Vermieter"))); const kk=document.getElementById("f_kategorie"); if(kk) kk.value="Reparatur/Handwerker"; } };
+  box.querySelectorAll("input[name=vb]").forEach(r=>r.onchange=uebernehmen); uebernehmen();
+  form.afterSave=async(id,data)=>{ const a=pick(); if(!a) return; const me=kurz({...data,...form.hidden}); const gruppe=a.gruppe||("grp-"+a.id);
+    const patchMe={gruppe,mitBeleg:kurz(a)}; const patchA={gruppe,mitBeleg:me};
+    if(rolle==="kauf"){ ["ticketCol","ticketId","kostentraeger","objektId","wohnungId"].forEach(k=>{ if(data[k]!=null&&data[k]!=="") patchA[k]=data[k]; }); if(data.ticketId) patchA.kategorie="Reparatur/Handwerker"; }
+    await st.db.collection("ausgaben").doc(id).update(patchMe); await st.db.collection("ausgaben").doc(a.id).update(patchA);
+    if(rolle==="kauf"&&data.ticketId&&!a.ticketId&&typeof logT==="function") await logT(data.ticketCol,data.ticketId,`${a.vermietArt||"Mietfahrzeug"} ${eur(a.betrag)} mit verknüpft – ${isMK(data)?"trägt Mieter":"trägt Vermieter"}`).catch(()=>{});
+    toast(`Mit „${kurz(a)}“ verknüpft`); };
 }
 
 /* öffentlich für index.html */

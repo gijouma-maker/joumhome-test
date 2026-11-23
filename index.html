@@ -3148,7 +3148,12 @@ Regeln:
 - "unsicher": true, wenn ein Artikel sowohl privat als auch für die Wohnung sein kann – dann privat=false lassen.
 - Jede gekaufte Zeile genau einmal. Pfand und Rabatte zum zugehörigen Artikel rechnen. Zwischensumme, Summe, Zahlungsart, MwSt-Tabelle, Rückgeld nicht als Position.
 - Bei einer Handwerker- oder Dienstleistungsrechnung reicht eine Position (privat=false).
-- "kategorie" und "umlage" nur nach den Artikeln für die Wohnung. "umlage" ist true nur bei umlagefähigen Betriebskosten nach Betriebskostenverordnung (${UMLAGE_KAT.join(", ")}); Reparaturen, Material, Möbel und Handwerker für Instandhaltung sind nicht umlagefähig.${posRegelnTxt()}`,[blob]);
+- "kategorie" und "umlage" nur nach den Artikeln für die Wohnung. "umlage" ist true nur bei umlagefähigen Betriebskosten nach Betriebskostenverordnung (${UMLAGE_KAT.join(", ")}); Reparaturen, Material, Möbel und Handwerker für Instandhaltung sind nicht umlagefähig.${posRegelnTxt()}
+Zusätzlich im selben JSON-Objekt:
+"vermietung": true, wenn der Beleg die Miete oder Leihe eines Fahrzeugs oder Geräts ist (Transporter, Anhänger, Kleinbus, Mietwagen, Mietgerät wie Bohrhammer/Trocknungsgerät/Teppichreiniger, Container, Sperrmüll-/Entsorgungsdienst), sonst false.
+"vermietArt": kurze Bezeichnung, z. B. "Transporter", "Anhänger", "Trocknungsgerät", "Container" – oder null.
+"ticketNr": Nummer des passenden Tickets aus dieser Liste, nur wenn der Beleg erkennbar dazu passt (gleiche Sache, z. B. Material für genau diesen Schaden), sonst null. Tickets: ${typeof belegTicketListe==="function"?belegTicketListe(o.hidden):"keine"}
+"ticketGrund": kurz, warum dieses Ticket passt – oder null.`,[blob]);
   if(r.err){ aiDone(form,r.err,false); return; }
   const v=r.v||{};
   const P=(Array.isArray(v.positionen)?v.positionen:[]).map(p=>({text:String(p?.text||"").slice(0,80),betrag:rc2(num(p?.betrag)),privat:!!p?.privat,unsicher:!p?.privat&&!!p?.unsicher,grund:p?.privat?String(p?.grund||"").slice(0,80):""})).filter(p=>p.text||p.betrag);
@@ -3161,6 +3166,7 @@ Regeln:
   const np=P.filter(p=>p.privat), nu=P.filter(p=>p.unsicher).length;
   const msg=!n?"Nichts erkannt – bitte selbst ausfüllen.":np.length&&np.length===P.length?"Alles auf dem Bon wirkt privat – bitte prüfen, ob das eine Ausgabe für die Wohnung ist.":np.length?`${np.length} private Position${np.length>1?"en":""} aussortiert (− ${eur(form.extra?.privatAbzug||0)})${nu?`, ${nu} bitte prüfen`:""} – bitte Objekt wählen.`:`Beleg ausgelesen${nu?` – ${nu} Position${nu>1?"en":""} bitte prüfen`:""} – bitte Objekt wählen.`;
   aiDone(form,msg,!!n&&!(np.length&&np.length===P.length));
+  if(typeof belegZuordnung==="function") belegZuordnung(form,v,o);
 }
 /* Vertrag scannen */
 async function scanVertrag(wid){

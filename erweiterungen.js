@@ -729,8 +729,42 @@ function extraAttention2(att){
 }
 const _mx=mieterExtra; mieterExtra=function(m){ const ka=m.kautionAbr; return _mx(m)+`<section class="card" style="display:flex;flex-direction:column;gap:6px"><div class="spread"><h3>Kaution</h3>${ka?`<span class="pill ok">abgerechnet ${esc(fmtDate(ka.datum))}</span>`:""}</div><div class="small">Gezahlt ${eur(+m.kautionGezahlt||0)} von ${eur(+m.kaution||0)}${mEnde(m)?` · Mietende ${esc(fmtDate(mEnde(m)))}`:""}</div><div class="row"><button class="btn sm" data-act="kaution" data-id="${esc(m.id)}">Kautionsabrechnung</button></div></section>`; };
 
+/* =========================================================
+   12) BELEG → TICKET & KOSTENTRÄGER (z. B. Transporter für einen Schaden)
+   ========================================================= */
+function belegTicketsOf(){ const grenze=addM(today(),-3); return tickets().filter(t=>t.s!=="Erledigt"||String(t.d.geaendert||t.d.datum||"").slice(0,10)>=grenze).sort((a,b)=>(+b.d.nr||0)-(+a.d.nr||0)).slice(0,40); }
+function belegTicketListe(h){ const L=belegTicketsOf(); return L.length?L.map(t=>`#${t.d.nr} ${t.col==="schaeden"?"Schaden":"Verstoß"}: ${tTitle(t.col,t.d).slice(0,70)} (${wohnFull(t.d.wohnungId)}${mieterOf(t.d.wohnungId)?", Mieter "+mieterOf(t.d.wohnungId).name:""})`).join("; "):"keine"; }
+function belegZuordnung(form,v,o){
+  if(!form||form!==F) return; const ctx=o?.hidden?.ticketId?{col:o.hidden.ticketCol,id:o.hidden.ticketId}:null;
+  const L=belegTicketsOf(); const byNr=nr=>L.find(t=>String(t.d.nr)===String(nr).replace("#",""));
+  const vor=ctx?L.find(t=>t.col===ctx.col&&t.d.id===ctx.id)||{col:ctx.col,d:st.data[ctx.col]?.[ctx.id]}:(v.ticketNr?byNr(v.ticketNr):null);
+  if(!ctx&&!v.vermietung&&!vor) return;
+  let box=document.getElementById("zuoBox"); if(!box){ box=document.createElement("div"); box.id="zuoBox"; box.className="card"; box.style.cssText="display:flex;flex-direction:column;gap:8px"; const anchor=document.getElementById("posBox")||document.getElementById("aiBox"); if(anchor) anchor.insertAdjacentElement("afterend",box); else $("#sheet .fields")?.insertAdjacentElement("beforebegin",box); }
+  const sel0=vor?.d?`${vor.col}|${vor.d.id}`:"";
+  const title=v.vermietung?`${v.vermietArt||"Mietfahrzeug / Mietgerät"} erkannt`:ctx?"Wer zahlt diese Kosten?":"Passt zu einem Ticket?";
+  box.innerHTML=`<b>${esc(title)}</b>
+   <div class="small">${v.vermietung?"Wurde das für einen Schaden oder eine Reparatur gemietet? Dann ordne es dem Ticket zu und entscheide, wer zahlt.":ctx?"Du entscheidest: Übernimmst du die Kosten oder hat der Mieter den Schaden verursacht?":`Die KI meint: passt zu Ticket #${esc(String(vor.d.nr))}${v.ticketGrund?" – "+esc(v.ticketGrund):""}. Bitte bestätigen.`}</div>
+   <div class="field full"><label for="zuo_t">Ticket</label><select id="zuo_t"><option value="">– kein Ticket –</option>${L.map(t=>`<option value="${t.col}|${esc(t.d.id)}"${`${t.col}|${t.d.id}`===sel0?" selected":""}>#${esc(String(t.d.nr))} ${esc(tTitle(t.col,t.d).slice(0,50))} · ${esc(wohnFull(t.d.wohnungId))}</option>`).join("")}${vor?.d&&!L.includes(vor)?`<option value="${sel0}" selected>#${esc(String(vor.d.nr))} ${esc(tTitle(vor.col,vor.d).slice(0,50))}</option>`:""}</select></div>
+   <div class="row"><button type="button" class="btn sm" data-zk="Vermieter">Vermieter übernimmt</button><button type="button" class="btn sm" data-zk="Mieter (verursacht)">Mieter zahlt (hat es verursacht)</button></div>
+   <div class="small" id="zuo_info"></div>`;
+  const apply=()=>{ const tv=$("#zuo_t").value; const kt=document.getElementById("f_kostentraeger")?.value||"Vermieter";
+    box.querySelectorAll("[data-zk]").forEach(b=>b.classList.toggle("pri",b.dataset.zk===kt));
+    form.hidden=form.hidden||{};
+    if(tv){ const [col,id]=tv.split("|"); const t=st.data[col]?.[id]; form.hidden.ticketCol=col; form.hidden.ticketId=id;
+      if(t?.wohnungId){ const w=wohn(t.wohnungId); const fo=document.getElementById("f_objektId"); if(fo&&w){ fo.value=w.objektId; fo.dispatchEvent(new Event("change",{bubbles:true})); } setTimeout(()=>{ const fw=document.getElementById("f_wohnungId"); if(fw){ fw.value=t.wohnungId; } },50); }
+      const fb=document.getElementById("f_beschreibung"); const pre=`${v.vermietung?(v.vermietArt||"Miete")+" für ":""}#${t?.nr} `; if(fb&&!fb.value.includes(`#${t?.nr}`)) fb.value=(pre+(fb.value||tTitle(col,t))).slice(0,140);
+    } else { delete form.hidden.ticketCol; delete form.hidden.ticketId; }
+    const m=tv?mieterOf(st.data[tv.split("|")[0]]?.[tv.split("|")[1]]?.wohnungId):null;
+    $("#zuo_info").textContent=kt==="Mieter (verursacht)"?`Wird beim Mieter${m?" "+m.name:""} als Forderung geführt (Ticket, Zahlungen/Mahnung). Für den Steuerberater: erst einmal deine Ausgabe; wenn der Mieter zahlt, „Vom Mieter erstattet“ anhaken – dann zählt es als Einnahme.`:`Du trägst die Kosten – für den Steuerberater als Werbungskosten (${document.getElementById("f_kategorie")?.value||"Reparatur"}).`; };
+  box.querySelectorAll("[data-zk]").forEach(b=>b.onclick=()=>{ const k=document.getElementById("f_kostentraeger"); if(k){ k.value=b.dataset.zk; k.dispatchEvent(new Event("change",{bubbles:true})); } if(b.dataset.zk==="Mieter (verursacht)"){ const u=document.getElementById("f_umlage"); if(u) u.checked=false; } if(v.vermietung){ const kk=document.getElementById("f_kategorie"); if(kk&&$("#zuo_t").value) kk.value="Reparatur/Handwerker"; } apply(); });
+  $("#zuo_t").onchange=apply;
+  if(v.vermietung&&(vor||ctx)){ const kk=document.getElementById("f_kategorie"); if(kk) kk.value="Reparatur/Handwerker"; }
+  apply();
+  if(v.vermietung||vor){ const t=document.getElementById("aiTxt"); if(t) t.textContent=(t.textContent||"")+` · ${v.vermietung?(v.vermietArt||"Miete")+" erkannt":"Ticket #"+vor.d.nr+" vorgeschlagen"} – bitte unten zuordnen und entscheiden, wer zahlt.`; }
+}
+
 /* öffentlich für index.html */
-Object.assign(window,{vNK,vWartung,vBegehung,vMietanp,vAnlV,vRendite,kiSchaden,mieterExtra,extraAttention:(att)=>{ extraAttention(att); try{ extraAttention2(att); }catch(e){ console.warn(e); } },bwBox,postSheet,nkCalc,zahlTrend,mietCalc,anlvCalc,dsSheet,bkSheet,fristenSheet});
+Object.assign(window,{belegZuordnung,belegTicketListe,vNK,vWartung,vBegehung,vMietanp,vAnlV,vRendite,kiSchaden,mieterExtra,extraAttention:(att)=>{ extraAttention(att); try{ extraAttention2(att); }catch(e){ console.warn(e); } },bwBox,postSheet,nkCalc,zahlTrend,mietCalc,anlvCalc,dsSheet,bkSheet,fristenSheet});
 })();
 
 /* =========================================================

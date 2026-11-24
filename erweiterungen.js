@@ -831,7 +831,7 @@ function vWlan(oid){
     return `<div class="item s-${W.art?st0:"neutral"}"><div class="head"><div><b>${esc(m.name)}</b><div class="meta">${esc(wohnFull(m.wohnungId))}${W.art?` · ${esc(W.art==="separat"?`eigene Gebühr ${eur(+W.gebuehr||0)}/Monat`:W.art==="inklusive"?"in der Miete enthalten":"kein Internet")}`:" · noch nicht eingerichtet"}</div></div>${W.status==="gesperrt"?`<span class="pill bad">gesperrt</span>`:W.key?`<span class="pill ok">aktiv</span>`:""}</div>
      ${W.key&&W.status!=="gesperrt"?`<div class="small">Passwort: <b>${esc(W.key)}</b> · VLAN ${esc(String(W.vlan||wlVlan(m)))}</div>`:""}
      ${W.art==="separat"?`<div class="small">${S.R.betrag>0?`Offen: ${eur(S.R.betrag)} (${S.R.monate.map((y=>fmtYm(y,"de"))).join(", ")})`:"Internet-Gebühr bezahlt"}${W.angedrohtAm?` · Sperre angedroht am ${esc(fmtDate(W.angedrohtAm))}${S.ange<14?` (Sperre frühestens ab ${esc(fmtDate(addM(W.angedrohtAm,0)&&dStr(new Date(dParse(W.angedrohtAm).getTime()+14*864e5))))})`:""}`:""}</div>`:""}
-     <div class="row"><button class="btn sm" data-act="wlEdit" data-id="${esc(m.id)}">${W.art?"Einstellungen":"Einrichten"}</button>${W.art==="separat"?`<button class="btn sm" data-act="wlPay" data-id="${esc(m.id)}">Zahlungen</button>`:""}${W.key&&W.status!=="gesperrt"?`<button class="btn sm" data-act="wlNeu" data-id="${esc(m.id)}">Neues Passwort</button>`:""}${S.darfAndrohen?`<button class="btn sm pri" data-act="wlDroh" data-id="${esc(m.id)}">Sperre androhen</button>`:""}${S.darfSperren?`<button class="btn sm danger" data-act="wlSperr" data-id="${esc(m.id)}">Sperren</button>`:""}${W.status==="gesperrt"?`<button class="btn sm pri" data-act="wlFrei" data-id="${esc(m.id)}">Entsperren</button>`:""}</div></div>`; }).join("")||emptyBox("Keine aktiven Mieter in diesem Haus.")}</section>
+     <div class="row"><button class="btn sm" data-act="wlEdit" data-id="${esc(m.id)}">${W.art?"Einstellungen":"Einrichten"}</button>${W.art==="separat"?`<button class="btn sm" data-act="wlPay" data-id="${esc(m.id)}">Zahlungen</button>`:""}${W.key&&W.status!=="gesperrt"?`<button class="btn sm" data-act="wlNeu" data-id="${esc(m.id)}">Neues Passwort</button>`:""}${S.darfAndrohen?`<button class="btn sm pri" data-act="wlDroh" data-id="${esc(m.id)}">Sperre androhen</button>`:""}${S.darfSperren?`<button class="btn sm danger" data-act="wlSperr" data-id="${esc(m.id)}">Sperren</button>`:""}${W.status==="gesperrt"?`<button class="btn sm pri" data-act="wlFrei" data-id="${esc(m.id)}">Entsperren</button>`:""}${W.art?`<button class="btn sm ghost" data-act="wlBriefe" data-id="${esc(m.id)}">Briefe</button>`:""}</div></div>`; }).join("")||emptyBox("Keine aktiven Mieter in diesem Haus.")}</section>
   <p class="small">Sperren nur, wenn Internet als eigene Leistung mit eigener Gebühr vereinbart ist (Muster: „Vereinbarung Internet/WLAN“), mindestens 100 € offen sind und die Sperre 2 Wochen vorher schriftlich angedroht wurde – angelehnt an § 61 TKG. Ist Internet in der Miete enthalten, darf es wegen Mietrückstand nicht abgeschaltet werden (unzulässige Versorgungssperre). Keine Rechtsberatung.</p>`;
 }
 async function wlSet(m,patch,log){ const W={...(m.wlan||{}),...patch}; if(log) W.log=[...(W.log||[]),{t:new Date().toISOString(),text:log}].slice(-30); await dbUpd("mieter",m.id,{wlan:W}); if(typeof syncPortals==="function") syncPortals(); return W; }
@@ -873,11 +873,13 @@ Object.assign(ACT,{
     $("#wd_dl").onclick=()=>saveFile(`Androhung_Internetsperre_${String(m.name).replace(/\s+/g,"_")}.pdf`,blob); $("#wd_post").onclick=()=>postSheet({blob,name:`Androhung_Internetsperre.pdf`,titel:"Androhung Internetsperre",mieterId:m.id}); },
   wlSperr:async d=>{ const m=st.data.mieter[d.id]; if(!m) return; const S=wlState(m); if(!S.darfSperren){ toast("Sperre noch nicht zulässig"); return; } if(!await ask(`Internet von ${m.name} sperren? Offen: ${eur(S.R.betrag)}.`,"Sperren")) return; const o=st.data.objekte[wohn(m.wohnungId)?.objektId]||{};
     const W=await wlSet(m,{status:"gesperrt",oldKey:S.W.key,key:null,gesperrtAm:today()},`Gesperrt (${eur(S.R.betrag)} offen)`); m.wlan=W;
-    openSheet(`<div class="spread"><h2>Jetzt im Router sperren</h2><button class="btn sm ghost" data-act="close">Schließen</button></div><div class="note warn">${esc(wlAnleitung(o,m,"sperren"))}</div><div class="small">In der App ist der Zugang gesperrt und das Passwort beim Mieter ausgeblendet. Wirklich getrennt werden die Geräte erst mit dem Handgriff oben.</div><div class="row end"><button class="btn pri" data-act="close">Erledigt</button></div>`); },
+    openSheet(`<div class="spread"><h2>Jetzt im Router sperren</h2><button class="btn sm ghost" data-act="close">Schließen</button></div><div class="note warn">${esc(wlAnleitung(o,m,"sperren"))}</div><div class="small">In der App ist der Zugang gesperrt und das Passwort beim Mieter ausgeblendet. Wirklich getrennt werden die Geräte erst mit dem Handgriff oben.</div><div class="row end"><button class="btn" data-act="wlBrief" data-k="wlSperre" data-id="${esc(m.id)}">Mitteilung an Mieter (Brief)</button><button class="btn pri" data-act="close">Erledigt</button></div>`); },
   wlFrei:async d=>{ const m=st.data.mieter[d.id]; if(!m) return; const R=wlRueck(m); if(R.betrag>0&&!await ask(`Es sind noch ${eur(R.betrag)} offen. Trotzdem entsperren?`,"Entsperren")) return;
     const W=await wlSet(m,{status:"aktiv",key:wlKey(),angedrohtAm:null,sperreAb:null},"Entsperrt – neues Passwort"); m.wlan=W; wlShowKey(m,"Entsperrt – neues Passwort"); },
   wlVtr:d=>{ const m=st.data.mieter[d.id]; if(!m) return; const w=wohn(m.wohnungId), o=w?st.data.objekte[w.objektId]:null, W=m.wlan||{}; closeSheet();
     openVertrag("wlan",{mieterId:m.id,felder:{...ctxDef({m,w,o}),mAdr:[o?.adresse,w?.lage].filter(Boolean).join(", "),objAdr:o?.adresse||"",lage:w?.lage||"",beginn:W.seit||today(),gebuehr:W.gebuehr||null,ssid:o?.wlan?.ssid||""}}); },
+  wlBriefe:d=>{ const m=st.data.mieter[d.id]; if(!m) return; openSheet(`<div class="spread"><h2>Internet-Briefe – ${esc(m.name)}</h2><button class="btn sm ghost" data-act="close">Schließen</button></div><div class="small">Alle Felder sind schon ausgefüllt. Du prüfst, unterschreibst und schickst per Post, App oder WhatsApp.</div><div class="list">${["wlan","wlDroh","wlSperre","wlFrei","wlKuendV"].map(k=>`<button class="vrow" data-act="${k==="wlan"?"wlVtr":"wlBrief"}" data-k="${k}" data-id="${esc(m.id)}"><span class="vt"><b>${esc(VTPL[k].t)}</b><small class="vk">${esc(VTPL[k].d)}</small></span><span class="chev">›</span></button>`).join("")}</div>`); },
+  wlBrief:d=>{ const m=st.data.mieter[d.id]; if(!m||!VTPL[d.k]) return; closeSheet(); openVertrag(d.k,{mieterId:m.id,felder:wlBriefFelder(d.k,m)}); },
   wlGo:d=>{ closeSheet(); st.tab="haeuser"; st.mieter=null; st.objekt=d.o; st.osub="wlan"; render(); window.scrollTo(0,0); }
 });
 if(typeof VTPL==="object"&&!VTPL.wlan){
@@ -903,8 +905,73 @@ Die Vereinbarung läuft auf unbestimmte Zeit und kann von beiden Seiten mit eine
 
 § 6 Sonstiges
 ${v.sonst?v.sonst:"Keine weiteren Vereinbarungen."}`};
-  try{ const g=VGRUPPEN.find(x=>x[0]==="Zusatzverträge"); if(g&&!g[1].includes("wlan")) g[1].push("wlan"); }catch(e){}
+  const BF=[...CTX_F,{k:"lage",l:"Wohnung / Lage",t:"text"}];
+  VTPL.wlDroh={t:"Ankündigung einer Sperre des Internetzugangs",einseitig:1,d:"Brief bei offener Internet-Gebühr ab 100 €: Zahlungsfrist und Sperre frühestens 2 Wochen später.",f:[...BF,
+   {k:"gebuehr",l:"Gebühr pro Monat €",t:"number"},{k:"monate",l:"Offene Monate",t:"text",full:1},{k:"offen",l:"Offener Betrag €",t:"number",req:1},{k:"frist",l:"Zahlen bis",t:"date",req:1},{k:"sperreAb",l:"Sperre frühestens ab",t:"date",req:1}],
+   text:v=>`Offene Internet-Gebühr – Ankündigung einer Sperre des Internetzugangs (Wohnung ${VS(v.lage)})
+
+Sehr geehrte/r ${VS(v.mName)},
+
+aus der Vereinbarung über den Internet-/WLAN-Zugang${v.gebuehr?` (${VE(v.gebuehr)} monatlich)`:""} sind folgende Beträge offen${v.monate?`: ${v.monate}`:""}.
+Offener Gesamtbetrag: ${VE(v.offen)}
+
+Bitte überweisen Sie diesen Betrag bis zum ${VD(v.frist)}.
+
+Ist der Betrag bis dahin nicht eingegangen, werde ich Ihren Internet-/WLAN-Zugang frühestens ab dem ${VD(v.sperreAb)} sperren. Die Sperre betrifft ausschließlich den Internetzugang, nicht die Wohnung und keine anderen Leistungen. Nach Ausgleich des Rückstands wird der Zugang unverzüglich mit einem neuen Passwort wieder freigeschaltet.
+
+Sie haben die Möglichkeit, gegen die Sperre gerichtlichen Rechtsschutz in Anspruch zu nehmen.
+
+Mit freundlichen Grüßen`};
+  VTPL.wlSperre={t:"Mitteilung über die Sperre des Internetzugangs",einseitig:1,d:"Bestätigt dem Mieter, dass der Internetzugang gesperrt wurde und wie er wieder freigeschaltet wird.",f:[...BF,
+   {k:"angedroht",l:"Sperre angekündigt am",t:"date",req:1},{k:"gesperrt",l:"Gesperrt seit",t:"date",req:1},{k:"offen",l:"Offener Betrag €",t:"number",req:1}],
+   text:v=>`Sperre Ihres Internetzugangs (Wohnung ${VS(v.lage)})
+
+Sehr geehrte/r ${VS(v.mName)},
+
+mit Schreiben vom ${VD(v.angedroht)} habe ich Ihnen die Sperre Ihres Internet-/WLAN-Zugangs angekündigt. Da der offene Betrag von ${VE(v.offen)} bis heute nicht ausgeglichen wurde, ist Ihr Internetzugang seit dem ${VD(v.gesperrt)} gesperrt. Ihr bisheriges WLAN-Passwort ist ungültig; alle Geräte, die es verwendet haben, sind getrennt.
+
+Die Sperre betrifft ausschließlich den Internetzugang. Ihre Wohnung und alle anderen Leistungen sind davon nicht berührt.
+
+Sobald der offene Betrag bei mir eingegangen ist, schalte ich den Zugang unverzüglich wieder frei. Sie erhalten dann ein neues Passwort.
+
+Mit freundlichen Grüßen`};
+  VTPL.wlFrei={t:"Freischaltung des Internetzugangs",einseitig:1,d:"Bestätigt die Freischaltung bzw. ein neues WLAN-Passwort.",f:[...BF,
+   {k:"ab",l:"Freigeschaltet ab",t:"date",req:1},{k:"ssid",l:"Netzname",t:"text"},{k:"key",l:"Neues Passwort (optional – sonst nur in der App)",t:"text",full:1}],
+   text:v=>`Freischaltung Ihres Internetzugangs (Wohnung ${VS(v.lage)})
+
+Sehr geehrte/r ${VS(v.mName)},
+
+Ihr Internet-/WLAN-Zugang ist ab dem ${VD(v.ab)} wieder freigeschaltet. Aus Sicherheitsgründen gilt ein neues Passwort; das alte Passwort funktioniert nicht mehr.
+
+Netzname: ${VS(v.ssid)}
+${v.key?`Passwort: ${v.key}`:"Das neue Passwort und einen QR-Code finden Sie in der JoumHome-App unter „Mein WLAN“."}
+
+Das Passwort gilt nur für Ihren Haushalt. Bitte geben Sie es nicht an Dritte weiter.
+
+Mit freundlichen Grüßen`};
+  VTPL.wlKuendV={t:"Kündigung der Internet-Vereinbarung (Vermieter)",einseitig:1,d:"Kündigung nur des Internet-/WLAN-Zugangs mit 1 Monat Frist zum Monatsende. Der Mietvertrag läuft weiter.",f:[...BF,
+   {k:"vertragVom",l:"Vereinbarung vom",t:"date"},{k:"ende",l:"Endet zum",t:"date",req:1},{k:"grund",l:"Grund (optional)",t:"textarea",full:1}],
+   text:v=>`Kündigung der Vereinbarung über den Internet-/WLAN-Zugang (Wohnung ${VS(v.lage)})
+
+Sehr geehrte/r ${VS(v.mName)},
+
+hiermit kündige ich die Vereinbarung über den Internet-/WLAN-Zugang${v.vertragVom?` vom ${VD(v.vertragVom)}`:""} fristgerecht zum ${VD(v.ende)}.${v.grund?`\n\nGrund: ${v.grund}`:""}
+
+Ab diesem Tag ist der Internetzugang über das Haus-WLAN beendet und die monatliche Gebühr entfällt. Ihr Mietvertrag über die Wohnung bleibt davon unberührt und läuft unverändert weiter.
+
+Bitte kümmern Sie sich rechtzeitig um einen eigenen Internetanschluss.
+
+Mit freundlichen Grüßen`};
+  try{ const g=VGRUPPEN.find(x=>x[0]==="Zusatzverträge"); if(g) g[1]=g[1].filter(k=>k!=="wlan"); if(!VGRUPPEN.some(x=>x[0]==="Internet / WLAN")){ const i=VGRUPPEN.findIndex(x=>x[0]==="Zusatzverträge"); VGRUPPEN.splice(i+1,0,["Internet / WLAN",["wlan","wlDroh","wlSperre","wlFrei","wlKuendV"]]); } }catch(e){}
 }
+function wlBriefFelder(k,m){ const w=wohn(m.wohnungId), o=w?st.data.objekte[w.objektId]:null, W=m.wlan||{}, R=wlRueck(m);
+  const b={...ctxDef({m,w,o}),mAdr:[o?.adresse,w?.lage].filter(Boolean).join(", "),lage:w?.lage||""};
+  const plus=d=>dStr(new Date(Date.now()+d*864e5));
+  if(k==="wlDroh") Object.assign(b,{gebuehr:W.gebuehr||null,monate:R.monate.map(y=>fmtYm(y,"de")).join(", "),offen:R.betrag||null,frist:plus(14),sperreAb:plus(15)});
+  if(k==="wlSperre") Object.assign(b,{angedroht:W.angedrohtAm||"",gesperrt:W.gesperrtAm||today(),offen:R.betrag||null});
+  if(k==="wlFrei") Object.assign(b,{ab:today(),ssid:o?.wlan?.ssid||"",key:""});
+  if(k==="wlKuendV"){ const n=new Date(); Object.assign(b,{vertragVom:W.seit||"",ende:dStr(new Date(n.getFullYear(),n.getMonth()+2,0,12))}); }
+  return b; }
 function wlPortal(m){ const W=m.wlan; if(!W||!W.art||W.art==="keins") return null; const o=st.data.objekte[wohn(m.wohnungId)?.objektId]||{}; const R=wlRueck(m);
   return {ssid:o.wlan?.ssid||"",key:W.status==="gesperrt"?null:W.key,status:W.status||"aktiv",rueckstand:R.betrag,angedroht:!!W.angedrohtAm&&W.status!=="gesperrt",sperreAb:W.sperreAb||null}; }
 function wlAttention(att){ list("mieter").filter(m=>m.aktiv!==false&&m.wlan?.art==="separat").forEach(m=>{ const S=wlState(m); const oid=wohn(m.wohnungId)?.objektId;
@@ -912,7 +979,7 @@ function wlAttention(att){ list("mieter").filter(m=>m.aktiv!==false&&m.wlan?.art
   else if(S.darfAndrohen) att.push({c:"warn",t:`Internet-Gebühr offen: ${m.name}`,s:`${eur(S.R.betrag)} – Sperre kann angedroht werden`,a:`<button class="btn sm" data-act="wlGo" data-o="${esc(oid)}">WLAN</button>`}); }); }
 
 /* öffentlich für index.html */
-Object.assign(window,{vWlan,wlTile,wlPortal,wlAttention,belegZuordnung,belegTicketListe,vNK,vWartung,vBegehung,vMietanp,vAnlV,vRendite,kiSchaden,mieterExtra,extraAttention:(att)=>{ extraAttention(att); try{ extraAttention2(att); }catch(e){ console.warn(e); } try{ wlAttention(att); }catch(e){ console.warn(e); } },bwBox,postSheet,nkCalc,zahlTrend,mietCalc,anlvCalc,dsSheet,bkSheet,fristenSheet});
+Object.assign(window,{vWlan,wlKey,wlVlan,wlBriefFelder,wlTile,wlPortal,wlAttention,belegZuordnung,belegTicketListe,vNK,vWartung,vBegehung,vMietanp,vAnlV,vRendite,kiSchaden,mieterExtra,extraAttention:(att)=>{ extraAttention(att); try{ extraAttention2(att); }catch(e){ console.warn(e); } try{ wlAttention(att); }catch(e){ console.warn(e); } },bwBox,postSheet,nkCalc,zahlTrend,mietCalc,anlvCalc,dsSheet,bkSheet,fristenSheet});
 })();
 
 /* =========================================================
@@ -923,7 +990,7 @@ Object.assign(window,{vWlan,wlTile,wlPortal,wlAttention,belegZuordnung,belegTick
    ========================================================= */
 (function(){
 "use strict";
-const ART2TPL={stell:"stell",rate:"rate",verbrauch:"verbrauch",mietbesch:"mietbesch",wgb:"wgb"};
+const ART2TPL={wlan:"wlan",stell:"stell",rate:"rate",verbrauch:"verbrauch",mietbesch:"mietbesch",wgb:"wgb"};
 const ST_M="Wartet auf Mieter", ST_V="Wartet auf Vermieter", ST_P="Vorbereitet";
 const sgOf=(T,v)=>T.signer?T.signer(v):(T.nurMieter?"M":T.einseitig?"V":"VM");
 const SKIP=new Set(["vName","vAdr","mAdr","iban","bank","ort","sonst"]);
@@ -942,6 +1009,7 @@ function vtBuild(k,m,extra,zweck){
   if(k==="stell"&&!v.preis&&VG.stell?.[v.art||"Außenstellplatz"]) v.preis=VG.stell[v.art||"Außenstellplatz"];
   if(k==="verbrauch"&&!v.abschlag&&VG.abschlag?.[v.medium||"Strom"]) v.abschlag=VG.abschlag[v.medium||"Strom"];
   if(k==="stell"&&!v.beginn) v.beginn=today();
+  if(k==="wlan"){ const W=m?.wlan||{}; v.objAdr=o?.adresse||""; v.lage=w?.lage||""; v.ssid=o?.wlan?.ssid||""; if(!v.gebuehr) v.gebuehr=W.gebuehr||VG.wlan?.gebuehr||null; if(!v.bandbreite&&VG.wlan?.bw) v.bandbreite=VG.wlan.bw; if(!v.beginn) v.beginn=today(); }
   const fehlt=T.f.filter(f=>f.req&&(v[f.k]==null||v[f.k]==="")).map(f=>f.l);
   return {v,fehlt,sg:sgOf(T,v)};
 }
@@ -989,6 +1057,7 @@ async function vtFinish(id){
   const patch={pdfAsset:pdfId,status:"Unterschrieben",fertig:new Date().toISOString()};
   await st.db.collection("vertraege").doc(id).update(patch); Object.assign(v,patch);
   if(v.anfrageId) await st.db.collection("anfragen").doc(v.anfrageId).update({status:"Erledigt",vertragId:id}).catch(()=>{});
+  if(v.tpl==="wlan"&&v.mieterId){ const m=st.data.mieter[v.mieterId], f=v.felder||{}; if(m){ const W=m.wlan||{}; const nw={...W,art:"separat",gebuehr:+f.gebuehr||W.gebuehr||0,seit:f.beginn||W.seit||today(),zahlweise:W.zahlweise||"mit Miete",vlan:W.vlan||wlVlan(m),vereinbarung:id}; if(!nw.key&&nw.status!=="gesperrt"){ nw.key=wlKey(); nw.status="aktiv"; } await st.db.collection("mieter").doc(m.id).update({wlan:nw}).catch(()=>{}); m.wlan=nw; } }
   if(v.mieterId&&pdfId&&v.tpl==="miet") await st.db.collection("mieter").doc(v.mieterId).update({vertragAsset:pdfId}).catch(()=>{});
   if(typeof syncPortals==="function") syncPortals();
   return pdf;
@@ -1031,8 +1100,9 @@ function vtVorgabenSheet(){
   <div class="small">Damit Verträge aus Mieter-Anfragen sofort fertig sind. Leere Felder fragt die App bei dir nach.</div>
   <h3>Stellplatz / Garage – Miete pro Monat</h3><div class="fields">${ST.map((s,i)=>`<div class="field"><label for="vg_s${i}">${esc(s)} €</label><input id="vg_s${i}" type="number" step="any" value="${VG.stell?.[s]??""}"></div>`).join("")}</div>
   <h3>Zwischenzähler – Abschlag pro Monat</h3><div class="fields">${MD.map((s,i)=>`<div class="field"><label for="vg_a${i}">${esc(s)} €</label><input id="vg_a${i}" type="number" step="any" value="${VG.abschlag?.[s]??""}"></div>`).join("")}</div>
+  <h3>Internet / WLAN</h3><div class="fields"><div class="field"><label for="vg_wg">Gebühr pro Monat €</label><input id="vg_wg" type="number" step="any" value="${VG.wlan?.gebuehr??""}"></div><div class="field"><label for="vg_wb">Bandbreite (ca.)</label><input id="vg_wb" type="text" value="${esc(VG.wlan?.bw||"")}" placeholder="z. B. 100 Mbit/s"></div></div>
   <div class="row end"><button class="btn" data-act="close">Abbrechen</button><button class="btn pri" id="vg_ok">Speichern</button></div>`);
-  $("#vg_ok").onclick=async()=>{ const d={stell:{},abschlag:{}}; ST.forEach((s,i)=>{ const x=num($("#vg_s"+i).value); if(x) d.stell[s]=x; }); MD.forEach((s,i)=>{ const x=num($("#vg_a"+i).value); if(x) d.abschlag[s]=x; }); try{ await st.db.doc("config/vertragsvorgaben").set(d); st.vtVorg=d; closeSheet(); toast("Gespeichert"); vtRetry(); }catch(e){ toast("Speichern fehlgeschlagen"); } };
+  $("#vg_ok").onclick=async()=>{ const d={stell:{},abschlag:{},wlan:{gebuehr:num($("#vg_wg").value)||null,bw:$("#vg_wb").value.trim()}}; ST.forEach((s,i)=>{ const x=num($("#vg_s"+i).value); if(x) d.stell[s]=x; }); MD.forEach((s,i)=>{ const x=num($("#vg_a"+i).value); if(x) d.abschlag[s]=x; }); try{ await st.db.doc("config/vertragsvorgaben").set(d); st.vtVorg=d; closeSheet(); toast("Gespeichert"); vtRetry(); }catch(e){ toast("Speichern fehlgeschlagen"); } };
 }
 /* Mieter-App: Verträge zur Unterschrift */
 function vtSignBlock(){

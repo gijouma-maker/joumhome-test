@@ -1529,7 +1529,7 @@ function buildPortal(m){
     vermieter:{name:cf.name||"",adresse:cf.adresse||"",telefon:cf.telefon||"",email:cf.email||"",iban:cf.iban||"",bank:cf.bank||""},
     settings:{stumm:!!m.stumm,markt:m.markt!==false,feiern:m.feiern!==false},
     msgs:list("nachrichten").filter(n=>n.mieterId===m.id).sort((a,b)=>String(a.datum).localeCompare(String(b.datum))).slice(-100).map(n=>({id:n.id,von:n.von,text:n.text||"",betreff:n.betreff||"",wichtig:!!n.wichtig,datum:n.datum,foto:n.foto||""})),
-    tickets:tk,done,docs,anfragen:anf,kw,zaehler:zl,zuSign:typeof vtZuSign==="function"?vtZuSign(m):[]};
+    tickets:tk,done,docs,anfragen:anf,kw,zaehler:zl,zuSign:typeof vtZuSign==="function"?vtZuSign(m):[],wlan:typeof wlPortal==="function"?wlPortal(m):null};
 }
 let portalT=null;
 function syncPortals(){ if(!isAdmin()||!st.loaded||st.noDb||!st.db) return; clearTimeout(portalT); portalT=setTimeout(syncPortalsNow,1500); }
@@ -1609,7 +1609,7 @@ function vMStart(){
   const sc={score:p.score.score,rate:p.score.rate,v:p.score.v}, ym=curYm(), z0=p.miete.zahlungen.find(z=>z.monat===ym);
   const pend=(st.preview?[]:(st.ein?.items||[])).filter(i=>!p.done?.[i.id]&&["schaden","verstoss","zaehler"].includes(i.typ));
   const un=mUnread();
-  return `${previewBar()}${typeof vtSignBlock==="function"?vtSignBlock():""}
+  return `${previewBar()}${typeof vtSignBlock==="function"?vtSignBlock():""}${typeof wlTile==="function"?wlTile():""}
   ${un.imp.length?`<div class="item tap s-bad" data-act="tab" data-tab="haeuser" role="button" tabindex="0"><div class="head"><div><b>Wichtige Nachricht vom Vermieter</b><div class="meta">${esc(un.imp[un.imp.length-1].betreff||un.imp[un.imp.length-1].text.slice(0,90))}</div></div><span class="pill bad">${un.imp.length}</span></div></div>`:(un.msg?`<div class="item tap" data-act="tab" data-tab="haeuser" role="button" tabindex="0"><div class="head"><b>${un.msg} neue Nachricht${un.msg>1?"en":""} vom Vermieter</b><span class="pill bad">${un.msg}</span></div></div>`:"")}
   ${un.brett?`<div class="item tap" data-act="tab" data-tab="gemein" role="button" tabindex="0"><div class="head"><b>${un.brett>1?`${un.brett} neue Aushänge im Haus`:"1 neuer Aushang im Haus"}</b><span class="pill bad">${un.brett}</span></div></div>`:""}
   <div><div class="small">${esc(fmtDate(today()))} · ${esc(p.wohnung.objekt)}${p.wohnung.lage?` · ${esc(p.wohnung.lage)}`:""}</div><h1 style="font-size:28px">${esc(gruss)}, ${esc((p.name||"").split(" ")[0])}</h1></div>
@@ -3401,7 +3401,7 @@ function vObjekt(oid){
   const tk=objTickets(oid), open=tk.filter(t=>t.s!=="Erledigt").length;
   const med=list("medien").filter(x=>x.objektId===oid), prot=list("protokolle").filter(p=>p.objektId===oid);
   const cov=coverOf(oid), sub=st.osub||"uebersicht";
-  const tabs=`<div class="seg" role="group">${[["uebersicht","Übersicht"],["mieter","Mieter & Verträge"],["tickets",`Tickets (${open})`],["medien",`Fotos & Videos (${med.length})`],["dokumente",`Dokumente (${dokAll(oid).length})`],["inventar",`Inventar (${list("inventar").filter(x=>x.objektId===oid).length})`],["protokolle",`Protokolle (${prot.length})`],["wartung","Wartung"],["begehung","Begehung"]].map(([v,l])=>`<button data-act="osub" data-v="${v}" aria-pressed="${sub===v}">${esc(l)}</button>`).join("")}</div>`;
+  const tabs=`<div class="seg" role="group">${[["uebersicht","Übersicht"],["mieter","Mieter & Verträge"],["tickets",`Tickets (${open})`],["medien",`Fotos & Videos (${med.length})`],["dokumente",`Dokumente (${dokAll(oid).length})`],["inventar",`Inventar (${list("inventar").filter(x=>x.objektId===oid).length})`],["protokolle",`Protokolle (${prot.length})`],["wartung","Wartung"],["begehung","Begehung"],["wlan","WLAN"]].map(([v,l])=>`<button data-act="osub" data-v="${v}" aria-pressed="${sub===v}">${esc(l)}</button>`).join("")}</div>`;
   let body="";
   if(sub==="mieter"){
     body=`<div class="row"><button class="btn pri" data-act="scanVertrag">Vertrag scannen</button><button class="btn" data-act="new" data-col="mieter">Mieter anlegen</button></div>
@@ -3420,6 +3420,8 @@ function vObjekt(oid){
     body=vWartung(oid);
   } else if(sub==="begehung"&&typeof vBegehung==="function"){
     body=vBegehung(oid);
+  } else if(sub==="wlan"&&typeof vWlan==="function"){
+    body=vWlan(oid);
   } else if(sub==="inventar"){
     body=vInventar(oid);
   } else if(sub==="protokolle"){
@@ -4417,6 +4419,8 @@ const S_FN=[
  ["Pakete","Mein Paket ansehen, upgraden, Steuer-Plus","paket pakete abo upgrade preis tarif premium pro plus start",()=>openPakete()],
  ["Finanzen","Geld, Steuer, Kaufverträge, Kredite, Steuerberater an einem Ort","finanzen geld finanzierung kredit darlehen steuer steuerberater",()=>goView("geld","hub")],
  ["Kredit & laufende Kosten","Kreditvertrag, Stadtwerke, Versicherung hochladen","kredit darlehen rate bank finanzierung stadtwerke versicherung laufende kosten fixkosten",()=>ACT.finKosten()],
+ ["WLAN je Mieter","Eigenes WLAN-Passwort pro Wohnung, Sperre bei Rückstand","wlan wifi passwort internet router sperren ppsk unifi qr",()=>{ const o=list("objekte")[0]; if(o){ closeSheet(); st.tab="haeuser"; st.objekt=o.id; st.osub="wlan"; render(); } }],
+ ["Speedtest","Internet-Geschwindigkeit messen","speedtest internet geschwindigkeit wlan schnell",()=>ACT.speed()],
  ["Datensicherung","Automatische Sicherung, Gelöschtes zurückholen, Komplett-Sicherung","backup sicherung datensicherung wiederherstellen geloescht zurueckholen export",()=>ACT.bkOpen()],
  ["Fristen & Termine","Alle Fristen, in den Handy-Kalender übernehmen","fristen termine kalender erinnerung ics deadline",()=>ACT.fristen()],
  ["Rendite je Wohnung","Welche Wohnung lohnt sich","rendite cashflow lohnt leerstand gewinn",()=>goView("geld","rendite")],
@@ -5285,6 +5289,7 @@ fetch("logo-mark-dark.png").then(r=>r.ok?r.blob():null).then(b=>b&&blobToDataUrl
   if(st.role==="master") db.doc("config/einkommen").onSnapshot(s=>{ st.eink=s.exists?s.data():{}; later(); },()=>{});
 })();
 </script>
+<script src="qr.js"></script>
 <script src="erweiterungen.js"></script>
 </body>
 </html>

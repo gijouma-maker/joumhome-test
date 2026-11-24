@@ -799,8 +799,120 @@ function belegVerbund(form,v){
     toast(`Mit „${kurz(a)}“ verknüpft`); };
 }
 
+/* =========================================================
+   14) WLAN je Mieter (eigenes Passwort, Sperre bei Rückstand nach TKG-Regeln)
+   ========================================================= */
+const WL_SYS=[["unifi","UniFi (Private Pre-Shared Keys)"],["omada","TP-Link Omada (PPSK)"],["fritz","FRITZ!Box"],["anderes","Anderes System"]];
+const WORTE=["Apfel","Birke","Ahorn","Wolke","Sonne","Kiesel","Linde","Fluss","Hafen","Mond","Tanne","Stern","Feder","Welle","Insel","Moos","Nebel","Falke","Biber","Otter","Rabe","Quelle","Wiese","Eiche","Kranich","Lerche","Bucht","Dachs","Fuchs","Meise"];
+function wlKey(){ const r=new Uint32Array(4); crypto.getRandomValues(r); return `${WORTE[r[0]%WORTE.length]}-${WORTE[r[1]%WORTE.length]}-${WORTE[r[2]%WORTE.length]}-${String(1000+r[3]%9000)}`; }
+function wlVlan(m){ const ws=wsOf(wohn(m.wohnungId)?.objektId||""); const i=ws.findIndex(w=>w.id===m.wohnungId); return 10+10*Math.max(0,i); }
+function wlMonate(m){ const W=m.wlan||{}; const start=(W.seit||m.beginn||today()).slice(0,7); const out=[]; let ym=start; const cur=curYm(); const faellig=new Date().getDate()>3?cur:addM(cur+"-01",-1).slice(0,7); let n=0; while(ym<=faellig&&n<36){ out.push(ym); ym=addM(ym+"-01",1).slice(0,7); n++; } return out; }
+function wlBezahlt(m,ym){ const W=m.wlan||{}; if(W.bezahlt&&W.bezahlt[ym]!=null) return !!W.bezahlt[ym]; if(W.zahlweise==="mit Miete"){ const z=list("zahlungen").find(z=>z.wohnungId===m.wohnungId&&z.monat===ym); return !!z&&(+z.bezahlt||0)>=(+z.soll||sollOf(m.wohnungId))+(+W.gebuehr||0)-0.5; } return false; }
+function wlRueck(m){ const W=m.wlan||{}; if(W.art!=="separat"||!(+W.gebuehr)) return {betrag:0,monate:[]}; const of=wlMonate(m).filter(ym=>!wlBezahlt(m,ym)); return {betrag:r2(of.length*(+W.gebuehr)),monate:of}; }
+function wlState(m){ const W=m.wlan||{}, R=wlRueck(m); const ange=W.angedrohtAm?days(W.angedrohtAm,today()):null;
+  const darfAndrohen=W.art==="separat"&&W.status!=="gesperrt"&&R.betrag>=100&&!W.angedrohtAm;
+  const darfSperren=W.art==="separat"&&W.status!=="gesperrt"&&R.betrag>=100&&ange!=null&&ange>=14;
+  return {W,R,ange,darfAndrohen,darfSperren}; }
+function wlAnleitung(o,m,was){ const sys=o?.wlan?.system||"unifi", ssid=o?.wlan?.ssid||"(Netzname)", W=m.wlan||{}, lage=wohn(m.wohnungId)?.lage||m.wohnungId;
+  if(sys==="unifi") return was==="sperren"?`UniFi Network öffnen → Einstellungen → WiFi → „${ssid}“ → Private Pre-Shared Keys → Eintrag „${lage}“ löschen → Übernehmen. Alle Geräte mit diesem Passwort werden sofort getrennt.`:`UniFi Network → Einstellungen → WiFi → „${ssid}“ → Private Pre-Shared Keys → „Hinzufügen“: Passwort „${W.key}“, Netzwerk/VLAN ${W.vlan||wlVlan(m)}, Name „${lage}“ → Übernehmen.`;
+  if(sys==="omada") return was==="sperren"?`Omada Controller → Einstellungen → Profile → PPSK → Eintrag „${lage}“ löschen bzw. deaktivieren → Speichern. Alle Geräte mit diesem Passwort werden getrennt.`:`Omada Controller → Profile → PPSK → Eintrag „${lage}“: Passwort „${W.key}“, VLAN ${W.vlan||wlVlan(m)} → Speichern.`;
+  if(sys==="fritz") return `Achtung: Eine FRITZ!Box kann kein eigenes Passwort je Wohnung im selben Netz. Möglich ist nur, das Passwort für alle zu ändern (dann sind alle Mieter draußen) oder für diese Wohnung einen eigenen Access Point bzw. eine eigene FRITZ!Box zu nutzen. Für getrennte Passwörter empfehle ich UniFi oder Omada mit PPSK.`;
+  return was==="sperren"?`Im Router/Controller das Passwort „${W.oldKey||W.key}“ für ${lage} löschen oder deaktivieren.`:`Im Router/Controller für ${lage} das Passwort „${W.key}“ eintragen.`;
+}
+function wlQr(ssid,key,px=180){ if(typeof qrcode!=="function"||!ssid||!key) return ""; const e=x=>String(x).replace(/([\;,:"])/g,"\\$1"); try{ const q=qrcode(0,"M"); q.addData(`WIFI:T:WPA;S:${e(ssid)};P:${e(key)};;`); q.make(); const n=q.getModuleCount(), c=Math.max(2,Math.floor(px/(n+8))); return `<div style="background:#fff;padding:${c*4}px;border-radius:10px;display:inline-block;line-height:0">${q.createSvgTag({cellSize:c,margin:0,scalable:false})}</div>`; }catch(e){ return ""; } }
+function vWlan(oid){
+  const o=st.data.objekte[oid]||{}, C=o.wlan||{}; const ms=list("mieter").filter(m=>m.aktiv!==false&&wohn(m.wohnungId)?.objektId===oid);
+  return `<section class="card" style="display:flex;flex-direction:column;gap:8px"><h3>WLAN des Hauses</h3>
+   <div class="fields">${fld("Netzname (SSID)",inp("wl_ssid",C.ssid,"text","z. B. Riestestrasse16"))}${fld("System",sel("wl_sys",WL_SYS,C.system||"unifi"))}</div>
+   <div class="row"><button class="btn sm pri" id="wl_save" data-o="${esc(oid)}">Speichern</button></div>
+   <div class="small">Jede Wohnung bekommt ein eigenes Passwort im selben Netz (PPSK). Wird ein Passwort gelöscht, fliegen alle Geräte raus, die es benutzen – die anderen Mieter merken nichts. Die App steuert den Router nicht direkt; sie zeigt dir den genauen Handgriff (mit eigenem Server ist später Automatik möglich).</div></section>
+  <section class="list"><div class="sec-title"><h2>WLAN je Mieter</h2><span>${ms.length}</span></div>
+  ${ms.map(m=>{ const S=wlState(m), W=S.W; const st0=W.status==="gesperrt"?"bad":S.R.betrag>=100?"warn":"ok";
+    return `<div class="item s-${W.art?st0:"neutral"}"><div class="head"><div><b>${esc(m.name)}</b><div class="meta">${esc(wohnFull(m.wohnungId))}${W.art?` · ${esc(W.art==="separat"?`eigene Gebühr ${eur(+W.gebuehr||0)}/Monat`:W.art==="inklusive"?"in der Miete enthalten":"kein Internet")}`:" · noch nicht eingerichtet"}</div></div>${W.status==="gesperrt"?`<span class="pill bad">gesperrt</span>`:W.key?`<span class="pill ok">aktiv</span>`:""}</div>
+     ${W.key&&W.status!=="gesperrt"?`<div class="small">Passwort: <b>${esc(W.key)}</b> · VLAN ${esc(String(W.vlan||wlVlan(m)))}</div>`:""}
+     ${W.art==="separat"?`<div class="small">${S.R.betrag>0?`Offen: ${eur(S.R.betrag)} (${S.R.monate.map((y=>fmtYm(y,"de"))).join(", ")})`:"Internet-Gebühr bezahlt"}${W.angedrohtAm?` · Sperre angedroht am ${esc(fmtDate(W.angedrohtAm))}${S.ange<14?` (Sperre frühestens ab ${esc(fmtDate(addM(W.angedrohtAm,0)&&dStr(new Date(dParse(W.angedrohtAm).getTime()+14*864e5))))})`:""}`:""}</div>`:""}
+     <div class="row"><button class="btn sm" data-act="wlEdit" data-id="${esc(m.id)}">${W.art?"Einstellungen":"Einrichten"}</button>${W.art==="separat"?`<button class="btn sm" data-act="wlPay" data-id="${esc(m.id)}">Zahlungen</button>`:""}${W.key&&W.status!=="gesperrt"?`<button class="btn sm" data-act="wlNeu" data-id="${esc(m.id)}">Neues Passwort</button>`:""}${S.darfAndrohen?`<button class="btn sm pri" data-act="wlDroh" data-id="${esc(m.id)}">Sperre androhen</button>`:""}${S.darfSperren?`<button class="btn sm danger" data-act="wlSperr" data-id="${esc(m.id)}">Sperren</button>`:""}${W.status==="gesperrt"?`<button class="btn sm pri" data-act="wlFrei" data-id="${esc(m.id)}">Entsperren</button>`:""}</div></div>`; }).join("")||emptyBox("Keine aktiven Mieter in diesem Haus.")}</section>
+  <p class="small">Sperren nur, wenn Internet als eigene Leistung mit eigener Gebühr vereinbart ist (Muster: „Vereinbarung Internet/WLAN“), mindestens 100 € offen sind und die Sperre 2 Wochen vorher schriftlich angedroht wurde – angelehnt an § 61 TKG. Ist Internet in der Miete enthalten, darf es wegen Mietrückstand nicht abgeschaltet werden (unzulässige Versorgungssperre). Keine Rechtsberatung.</p>`;
+}
+async function wlSet(m,patch,log){ const W={...(m.wlan||{}),...patch}; if(log) W.log=[...(W.log||[]),{t:new Date().toISOString(),text:log}].slice(-30); await dbUpd("mieter",m.id,{wlan:W}); if(typeof syncPortals==="function") syncPortals(); return W; }
+function wlShowKey(m,titel){ const o=st.data.objekte[wohn(m.wohnungId)?.objektId]||{}, W=m.wlan||{};
+  openSheet(`<div class="spread"><h2>${esc(titel)}</h2><button class="btn sm ghost" data-act="close">Schließen</button></div>
+  <div class="note info">${esc(wlAnleitung(o,m,"anlegen"))}</div>
+  <div style="text-align:center">${wlQr(o.wlan?.ssid,W.key,200)}</div><div class="small" style="text-align:center">Netz: <b>${esc(o.wlan?.ssid||"–")}</b> · Passwort: <b>${esc(W.key)}</b></div>
+  <div class="row">${waBtn(m.telefon,`Hallo ${m.name},\n\nIhr WLAN-Zugang:\nNetz: ${o.wlan?.ssid||""}\nPasswort: ${W.key}\n\nDas Passwort gilt nur für Ihre Wohnung – bitte nicht weitergeben. Sie finden es auch in der App unter „Mein WLAN“ (mit QR-Code).\n\nViele Grüße\n${st.cfg?.name||""}`,"Per WhatsApp senden")}<button class="btn sm" id="wl_cp">Passwort kopieren</button></div>
+  <div class="small">Der Mieter sieht das Passwort auch in seiner App unter „Mein WLAN“.</div>`);
+  $("#wl_cp").onclick=async()=>{ try{ await navigator.clipboard.writeText(W.key); toast("Kopiert"); }catch(e){} };
+}
+function wlTile(){ const p=pm(); const w=p?.wlan; if(!w) return "";
+  return `<section class="card" style="display:flex;flex-direction:column;gap:8px"><div class="spread"><h3>${esc(tr("Mein WLAN"))}</h3>${w.status==="gesperrt"?`<span class="pill bad">${esc(tr("gesperrt"))}</span>`:`<span class="pill ok">${esc(tr("aktiv"))}</span>`}</div>
+  ${w.status==="gesperrt"?`<div class="small">${esc(tr("Dein Internet-Zugang ist gesperrt, weil die Internet-Gebühr offen ist"))}: ${eur(w.rueckstand||0)}. ${esc(tr("Nach Zahlung bekommst du ein neues Passwort."))}</div>`:`<div class="small">${esc(tr("Netz"))}: <b>${esc(w.ssid||"")}</b></div><div class="small">${esc(tr("Passwort"))}: <b id="wlK" data-k="${esc(w.key||"")}">••••••••</b> <button class="btn sm ghost" id="wlShow" type="button">${esc(tr("Anzeigen"))}</button></div>
+  <div style="text-align:center">${wlQr(w.ssid,w.key,170)}</div><div class="small" style="text-align:center">${esc(tr("QR-Code mit der Handy-Kamera scannen – fertig."))}</div>
+  ${w.angedroht?`<div class="note warn">${esc(tr("Internet-Gebühr offen"))}: ${eur(w.rueckstand||0)} – ${esc(tr("Sperre angekündigt ab"))} ${esc(fmtDate(w.sperreAb))}.</div>`:""}
+  <div class="small">${esc(tr("Nur für deine Wohnung – bitte nicht weitergeben."))}</div>`}
+  <button class="btn sm" data-act="speed" type="button">${esc(tr("Speedtest starten"))}</button></section>`; }
+document.addEventListener("click",async e=>{ const b=e.target.closest&&e.target.closest("#wl_save,#wlShow"); if(!b) return;
+  if(b.id==="wlShow"){ const k=$("#wlK"); if(k) k.textContent=k.textContent.startsWith("•")?k.dataset.k:"••••••••"; return; }
+  const oid=b.dataset.o; try{ await dbUpd("objekte",oid,{wlan:{...(st.data.objekte[oid].wlan||{}),ssid:val("wl_ssid"),system:val("wl_sys")}}); toast("Gespeichert"); if(typeof syncPortals==="function") syncPortals(); render(); }catch(x){ toast("Speichern fehlgeschlagen"); } });
+Object.assign(ACT,{
+  wlEdit:d=>{ const m=st.data.mieter[d.id]; if(!m) return; const W=m.wlan||{};
+    openSheet(`<div class="spread"><h2>WLAN – ${esc(m.name)}</h2><button class="btn sm ghost" data-act="close">Schließen</button></div>
+    <div class="fields">${fld("Internet",sel("wle_art",[["separat","Eigene Leistung mit monatlicher Gebühr"],["inklusive","In der Miete enthalten"],["keins","Kein Internet über mich"]],W.art||"separat"),1)}${fld("Gebühr € pro Monat",inp("wle_g",W.gebuehr,"number"))}${fld("Bezahlung",sel("wle_z",[["mit Miete","Mit der Miete überwiesen"],["separat","Eigene Überweisung (von Hand abhaken)"]],W.zahlweise||"mit Miete"))}${fld("Gilt ab",inp("wle_s",W.seit||m.beginn||today(),"date"))}${fld("VLAN",inp("wle_v",W.vlan||wlVlan(m),"number"))}</div>
+    <div class="small">Tipp: Für eine Sperre bei Nichtzahlung braucht es die schriftliche „Vereinbarung Internet/WLAN“ (unter Muster-Verträge → Zusatzverträge).</div>
+    <div class="row end"><button class="btn" data-act="close">Abbrechen</button><button class="btn" data-act="wlVtr" data-id="${esc(m.id)}">Vereinbarung erstellen</button><button class="btn pri" id="wle_ok">Speichern</button></div>`);
+    $("#wle_ok").onclick=async()=>{ const art=val("wle_art"); const patch={art,gebuehr:nval("wle_g")||0,zahlweise:val("wle_z"),seit:val("wle_s"),vlan:nval("wle_v")||wlVlan(m)}; if(art==="keins"){ patch.status=null; } else if(!W.key){ patch.key=wlKey(); patch.status="aktiv"; }
+      const W2=await wlSet(m,patch,W.art?"Einstellungen geändert":"WLAN eingerichtet"); closeSheet(); if(!W.key&&W2.key){ m.wlan=W2; wlShowKey(m,"WLAN-Zugang eingerichtet"); } else { toast("Gespeichert"); render(); } }; },
+  wlNeu:async d=>{ const m=st.data.mieter[d.id]; if(!m) return; if(!await ask("Neues Passwort erzeugen? Alle Geräte mit dem alten Passwort fliegen raus, sobald du es im Router löschst.","Neu erzeugen")) return; const old=m.wlan?.key; const W=await wlSet(m,{key:wlKey(),oldKey:old},"Neues Passwort erzeugt"); m.wlan=W; wlShowKey(m,"Neues WLAN-Passwort"); },
+  wlPay:d=>{ const m=st.data.mieter[d.id]; if(!m) return; const ms=wlMonate(m).slice(-12).reverse();
+    openSheet(`<div class="spread"><h2>Internet-Zahlungen – ${esc(m.name)}</h2><button class="btn sm ghost" data-act="close">Schließen</button></div><div class="small">${eur(+m.wlan?.gebuehr||0)} pro Monat. ${m.wlan?.zahlweise==="mit Miete"?"Automatisch bezahlt, wenn der Mieteingang Miete + Internet abdeckt – hier kannst du es von Hand ändern.":"Bezahlte Monate abhaken."}</div><div class="list">${ms.map(ym=>`<label class="nkfx"><input type="checkbox" data-wym="${ym}"${wlBezahlt(m,ym)?" checked":""}> <span>${esc(fmtYm(ym,"de"))}</span></label>`).join("")||emptyBox("Noch keine fälligen Monate.")}</div><div class="row end"><button class="btn pri" id="wlp_ok">Speichern</button></div>`);
+    $("#wlp_ok").onclick=async()=>{ const bz={...(m.wlan?.bezahlt||{})}; document.querySelectorAll("[data-wym]").forEach(x=>{ bz[x.dataset.wym]=x.checked; }); const W=await wlSet(m,{bezahlt:bz}); m.wlan=W; const R=wlRueck(m); const patch={}; if(R.betrag<100&&W.angedrohtAm){ patch.angedrohtAm=null; } if(Object.keys(patch).length) await wlSet(m,patch,"Rückstand unter 100 € – Androhung erledigt"); closeSheet(); toast("Gespeichert"); render(); }; },
+  wlDroh:async d=>{ const m=st.data.mieter[d.id]; if(!m) return; const S=wlState(m); if(!S.darfAndrohen) return; const ab=dStr(new Date(Date.now()+15*864e5));
+    const body=`Sehr geehrte/r ${m.name},\n\nfür die Bereitstellung des Internet-/WLAN-Zugangs (Vereinbarung über ${eur(+S.W.gebuehr)} monatlich) sind folgende Beträge offen:\n\n${S.R.monate.map(ym=>`${fmtYm(ym,"de")}: ${eur(+S.W.gebuehr)}`).join("\n")}\nGesamt: ${eur(S.R.betrag)}\n\nBitte überweisen Sie den Betrag bis zum ${fmtDate(dStr(new Date(Date.now()+14*864e5)))}.${typeof bankLine==="function"?" "+bankLine():""}\n\nSollte der Betrag bis dahin nicht eingegangen sein, werde ich den Internet-/WLAN-Zugang frühestens ab dem ${fmtDate(ab)} sperren. Die Sperre betrifft ausschließlich den Internetzugang, nicht die Wohnung oder andere Leistungen. Sie wird nach Ausgleich des Rückstands unverzüglich aufgehoben.\n\nSie haben die Möglichkeit, gegen die Sperre gerichtlichen Rechtsschutz in Anspruch zu nehmen.\n\nMit freundlichen Grüßen\n\n${st.cfg?.name||""}`;
+    const blob=letter({toLines:addrLines(m),betreff:"Offene Internet-Gebühr – Ankündigung einer Sperre des Internetzugangs",body:pT(body)});
+    await wlSet(m,{angedrohtAm:today(),sperreAb:ab},`Sperre angedroht (${eur(S.R.betrag)} offen)`);
+    openSheet(`<div class="spread"><h2>Sperre androhen</h2><button class="btn sm ghost" data-act="close">Schließen</button></div><div class="small">Die Androhung muss den Mieter mindestens 2 Wochen vor der Sperre schriftlich erreichen. Am sichersten per Einwurf-Einschreiben; der Mieter sieht den Hinweis zusätzlich in seiner App.</div><div class="row"><button class="btn pri" id="wd_dl">PDF speichern</button><button class="btn" id="wd_post">Per Post</button>${waBtn(m.telefon,`Hallo ${m.name}, für Ihr Internet sind ${eur(S.R.betrag)} offen. Bitte bis ${fmtDate(dStr(new Date(Date.now()+14*864e5)))} überweisen, sonst muss ich den Internetzugang ab ${fmtDate(ab)} sperren. Den Brief erhalten Sie zusätzlich per Post. Viele Grüße ${st.cfg?.name||""}`,"WhatsApp")}</div>`);
+    $("#wd_dl").onclick=()=>saveFile(`Androhung_Internetsperre_${String(m.name).replace(/\s+/g,"_")}.pdf`,blob); $("#wd_post").onclick=()=>postSheet({blob,name:`Androhung_Internetsperre.pdf`,titel:"Androhung Internetsperre",mieterId:m.id}); },
+  wlSperr:async d=>{ const m=st.data.mieter[d.id]; if(!m) return; const S=wlState(m); if(!S.darfSperren){ toast("Sperre noch nicht zulässig"); return; } if(!await ask(`Internet von ${m.name} sperren? Offen: ${eur(S.R.betrag)}.`,"Sperren")) return; const o=st.data.objekte[wohn(m.wohnungId)?.objektId]||{};
+    const W=await wlSet(m,{status:"gesperrt",oldKey:S.W.key,key:null,gesperrtAm:today()},`Gesperrt (${eur(S.R.betrag)} offen)`); m.wlan=W;
+    openSheet(`<div class="spread"><h2>Jetzt im Router sperren</h2><button class="btn sm ghost" data-act="close">Schließen</button></div><div class="note warn">${esc(wlAnleitung(o,m,"sperren"))}</div><div class="small">In der App ist der Zugang gesperrt und das Passwort beim Mieter ausgeblendet. Wirklich getrennt werden die Geräte erst mit dem Handgriff oben.</div><div class="row end"><button class="btn pri" data-act="close">Erledigt</button></div>`); },
+  wlFrei:async d=>{ const m=st.data.mieter[d.id]; if(!m) return; const R=wlRueck(m); if(R.betrag>0&&!await ask(`Es sind noch ${eur(R.betrag)} offen. Trotzdem entsperren?`,"Entsperren")) return;
+    const W=await wlSet(m,{status:"aktiv",key:wlKey(),angedrohtAm:null,sperreAb:null},"Entsperrt – neues Passwort"); m.wlan=W; wlShowKey(m,"Entsperrt – neues Passwort"); },
+  wlVtr:d=>{ const m=st.data.mieter[d.id]; if(!m) return; const w=wohn(m.wohnungId), o=w?st.data.objekte[w.objektId]:null, W=m.wlan||{}; closeSheet();
+    openVertrag("wlan",{mieterId:m.id,felder:{...ctxDef({m,w,o}),mAdr:[o?.adresse,w?.lage].filter(Boolean).join(", "),objAdr:o?.adresse||"",lage:w?.lage||"",beginn:W.seit||today(),gebuehr:W.gebuehr||null,ssid:o?.wlan?.ssid||""}}); },
+  wlGo:d=>{ closeSheet(); st.tab="haeuser"; st.mieter=null; st.objekt=d.o; st.osub="wlan"; render(); window.scrollTo(0,0); }
+});
+if(typeof VTPL==="object"&&!VTPL.wlan){
+  VTPL.wlan={t:"Vereinbarung Internet/WLAN",d:"Internetzugang über das Haus-WLAN mit eigenem Passwort, monatlicher Gebühr und Regeln zur Sperre.",f:[...CTX_F,
+   {k:"objAdr",l:"Anschrift der Wohnung",t:"text",full:1},{k:"lage",l:"Lage",t:"text"},{k:"beginn",l:"Gilt ab",t:"date",req:1},{k:"gebuehr",l:"Gebühr pro Monat €",t:"number",req:1},
+   {k:"bandbreite",l:"Bandbreite (ca.)",t:"text"},{k:"ssid",l:"Netzname",t:"text"},{k:"sonst",l:"Sonstiges",t:"textarea",full:1}],
+   text:v=>`Zwischen ${VS(v.vName)} – „Vermieter“ – und ${VS(v.mName)} – „Mieter“ – wird für die Wohnung ${VS(v.lage)}, ${VS(v.objAdr)} folgende Zusatzvereinbarung zum Mietvertrag geschlossen. Sie ist vom Mietvertrag unabhängig und gesondert kündbar.
+
+§ 1 Leistung
+Der Vermieter stellt dem Mieter ab ${VD(v.beginn)} einen Internetzugang über das Haus-WLAN „${VS(v.ssid)}“ zur Verfügung${v.bandbreite?` (Bandbreite ca. ${v.bandbreite}, je nach Auslastung)`:""}. Der Mieter erhält ein eigenes Passwort, das nur für seine Wohnung gilt. Er darf es nicht an Dritte außerhalb seines Haushalts weitergeben.
+
+§ 2 Entgelt
+Der Mieter zahlt dafür monatlich ${VE(v.gebuehr)}, fällig zusammen mit der Miete bis zum 3. Werktag des Monats.
+
+§ 3 Nutzung
+Der Mieter nutzt den Zugang nur im Rahmen der Gesetze. Er ist für seine Nutzung und Inhalte selbst verantwortlich. Bei begründetem Verdacht auf Missbrauch darf der Vermieter den Zugang vorübergehend sperren.
+
+§ 4 Sperre bei Zahlungsverzug
+Ist der Mieter mit Zahlungen aus dieser Vereinbarung mit mindestens 100 EUR in Verzug, darf der Vermieter den Internetzugang sperren, nachdem er die Sperre mindestens zwei Wochen vorher schriftlich angedroht und auf die Möglichkeit gerichtlichen Rechtsschutzes hingewiesen hat. Die Sperre betrifft nur den Internetzugang. Nach Ausgleich des Rückstands wird der Zugang unverzüglich mit einem neuen Passwort wieder freigeschaltet.
+
+§ 5 Laufzeit
+Die Vereinbarung läuft auf unbestimmte Zeit und kann von beiden Seiten mit einer Frist von einem Monat zum Monatsende in Textform gekündigt werden. Sie endet spätestens mit dem Mietverhältnis.
+
+§ 6 Sonstiges
+${v.sonst?v.sonst:"Keine weiteren Vereinbarungen."}`};
+  try{ const g=VGRUPPEN.find(x=>x[0]==="Zusatzverträge"); if(g&&!g[1].includes("wlan")) g[1].push("wlan"); }catch(e){}
+}
+function wlPortal(m){ const W=m.wlan; if(!W||!W.art||W.art==="keins") return null; const o=st.data.objekte[wohn(m.wohnungId)?.objektId]||{}; const R=wlRueck(m);
+  return {ssid:o.wlan?.ssid||"",key:W.status==="gesperrt"?null:W.key,status:W.status||"aktiv",rueckstand:R.betrag,angedroht:!!W.angedrohtAm&&W.status!=="gesperrt",sperreAb:W.sperreAb||null}; }
+function wlAttention(att){ list("mieter").filter(m=>m.aktiv!==false&&m.wlan?.art==="separat").forEach(m=>{ const S=wlState(m); const oid=wohn(m.wohnungId)?.objektId;
+  if(S.darfSperren) att.push({c:"bad",t:`Internet sperren möglich: ${m.name}`,s:`${eur(S.R.betrag)} offen, Sperre am ${fmtDate(S.W.angedrohtAm)} angedroht`,a:`<button class="btn sm" data-act="wlGo" data-o="${esc(oid)}">WLAN</button>`});
+  else if(S.darfAndrohen) att.push({c:"warn",t:`Internet-Gebühr offen: ${m.name}`,s:`${eur(S.R.betrag)} – Sperre kann angedroht werden`,a:`<button class="btn sm" data-act="wlGo" data-o="${esc(oid)}">WLAN</button>`}); }); }
+
 /* öffentlich für index.html */
-Object.assign(window,{belegZuordnung,belegTicketListe,vNK,vWartung,vBegehung,vMietanp,vAnlV,vRendite,kiSchaden,mieterExtra,extraAttention:(att)=>{ extraAttention(att); try{ extraAttention2(att); }catch(e){ console.warn(e); } },bwBox,postSheet,nkCalc,zahlTrend,mietCalc,anlvCalc,dsSheet,bkSheet,fristenSheet});
+Object.assign(window,{vWlan,wlTile,wlPortal,wlAttention,belegZuordnung,belegTicketListe,vNK,vWartung,vBegehung,vMietanp,vAnlV,vRendite,kiSchaden,mieterExtra,extraAttention:(att)=>{ extraAttention(att); try{ extraAttention2(att); }catch(e){ console.warn(e); } try{ wlAttention(att); }catch(e){ console.warn(e); } },bwBox,postSheet,nkCalc,zahlTrend,mietCalc,anlvCalc,dsSheet,bkSheet,fristenSheet});
 })();
 
 /* =========================================================

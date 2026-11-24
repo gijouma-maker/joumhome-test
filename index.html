@@ -1011,7 +1011,7 @@ const VTPL={
   {k:"objAdr",l:"Anschrift der Wohnung",t:"text",full:1},{k:"lage",l:"Lage im Haus",t:"text"},{k:"zimmer",l:"Zimmer",t:"number"},{k:"flaeche",l:"Wohnfläche m²",t:"number"},{k:"nebenraeume",l:"Mitvermietet (Keller, Garten …)",t:"text"},
   {k:"beginn",l:"Mietbeginn",t:"date",req:1},{k:"kalt",l:"Kaltmiete €",t:"number",req:1},{k:"nk",l:"Vorauszahlung Betriebskosten €",t:"number"},{k:"heiz",l:"Vorauszahlung Heiz-/Warmwasserkosten €",t:"number"},{k:"extra",l:"Sonstiges € (z. B. Stellplatz)",t:"number"},
   {k:"kaution",l:"Kaution €",t:"number"},{k:"iban",l:"IBAN für die Miete",t:"text"},{k:"bank",l:"Bank",t:"text"},{k:"personen",l:"Personen im Haushalt",t:"number"},{k:"schluessel",l:"Schlüssel (Anzahl/Art)",t:"text",full:1},
-  {k:"tiere",l:"Tierhaltung",t:"select",o:["Kleintiere erlaubt, sonst nur nach Zustimmung","Hund/Katze erlaubt"]},{k:"sonst",l:"Sonstige Vereinbarungen",t:"textarea",full:1}],
+  {k:"tiere",l:"Tierhaltung",t:"select",o:["Kleintiere erlaubt, sonst nur nach Zustimmung","Hund/Katze erlaubt"]},{k:"internet",l:"Internet",t:"select",o:["Kein Internet über den Vermieter","Internet/WLAN nur über gesonderte Vereinbarung"],def:"Kein Internet über den Vermieter"},{k:"sonst",l:"Sonstige Vereinbarungen",t:"textarea",full:1}],
   text:v=>`Zwischen ${VS(v.vName)}, ${VS(v.vAdr)} – nachfolgend „Vermieter“ – und ${VS(v.mName)}${v.mAdr?`, bisher wohnhaft ${v.mAdr}`:""} – nachfolgend „Mieter“ – wird folgender Mietvertrag über Wohnraum geschlossen:
 
 § 1 Mietsache
@@ -1046,6 +1046,8 @@ Der Mieter hat die Mietsache pfleglich zu behandeln und Schäden unverzüglich a
 § 9 Übergabe und Rückgabe
 Die Wohnung wird in dem Zustand übergeben, der im Übergabeprotokoll festgehalten ist. Übergeben werden: ${VS(v.schluessel)}. Bei Ende des Mietverhältnisses ist die Wohnung besenrein mit allen Schlüsseln zurückzugeben.
 
+Internet: Ein Internetzugang ist nicht Bestandteil der Mietsache.${String(v.internet||"").startsWith("Internet/WLAN")?" Der Vermieter kann einen Internet-/WLAN-Zugang über eine gesonderte, eigenständig kündbare Vereinbarung anbieten.":""} Der Mieter kann jederzeit einen eigenen Anschluss bei einem Anbieter seiner Wahl beauftragen; bauliche Arbeiten dafür stimmt er vorher mit dem Vermieter ab und lässt sie fachgerecht ausführen.
+
 § 10 Kontakt und Datenschutz
 Der Vermieter verarbeitet die Daten des Mieters zur Durchführung des Mietverhältnisses (Art. 6 Abs. 1 lit. b DSGVO). Eine Kontaktaufnahme per Messenger erfolgt nur nach gesonderter Einwilligung.
 
@@ -1075,23 +1077,26 @@ Der Mieter haftet für Schäden, die er oder seine Besucher schuldhaft verursach
 Änderungen sollen in Textform erfolgen.`},
  verbrauch:{t:"Vereinbarung Strom & Wasser (Zwischenzähler)",d:"Abrechnung von Strom- oder Wasserverbrauch über Zwischenzähler mit monatlichem Abschlag.",f:[...CTX_F,
   {k:"objAdr",l:"Anschrift der Wohnung",t:"text",full:1},{k:"lage",l:"Lage",t:"text"},{k:"medium",l:"Gilt für",t:"select",o:["Strom","Wasser (kalt und warm)","Strom und Wasser"]},
-  {k:"zaehlerNr",l:"Zwischenzähler-Nr.",t:"text"},{k:"startStand",l:"Zählerstand bei Beginn",t:"text"},{k:"beginn",l:"Gilt ab",t:"date",req:1},
+  {k:"zaehlerNr",l:"Zwischenzähler-Nr.",t:"text",req:1},{k:"eichjahr",l:"Eichjahr des Zählers",t:"number",req:1},{k:"startStand",l:"Zählerstand bei Beginn",t:"text"},{k:"beginn",l:"Gilt ab",t:"date",req:1},
   {k:"abschlag",l:"Monatlicher Abschlag €",t:"number",req:1},{k:"preisbasis",l:"Abrechnungsgrundlage",t:"select",o:["Preise des Versorgers (Arbeitspreis + anteiliger Grundpreis)","Fester Preis je Einheit (siehe Sonstiges)"]},{k:"sonst",l:"Sonstiges",t:"textarea",full:1}],
   text:v=>`Zwischen ${VS(v.vName)} – „Vermieter“ – und ${VS(v.mName)} – „Mieter“ – wird für die Wohnung ${VS(v.lage)}, ${VS(v.objAdr)} folgende Zusatzvereinbarung zum Mietvertrag geschlossen:
 
 § 1 Gegenstand
-Der Verbrauch für ${VS(v.medium)} der Wohnung wird über den Zwischenzähler Nr. ${VS(v.zaehlerNr)} erfasst. Zählerstand bei Beginn (${VD(v.beginn)}): ${VS(v.startStand)}.
+Der Verbrauch für ${VS(v.medium)} der Wohnung wird über den Zwischenzähler Nr. ${VS(v.zaehlerNr)} erfasst. Der Zähler ist geeicht (Eichjahr ${VS(v.eichjahr)}); der Vermieter sorgt dafür, dass er vor Ablauf der Eichfrist neu geeicht oder getauscht wird. Zählerstand bei Beginn (${VD(v.beginn)}): ${VS(v.startStand)}.
 
 § 2 Abschlag
 Der Mieter zahlt ab ${VD(v.beginn)} zusammen mit der Miete einen monatlichen Abschlag von ${VE(v.abschlag)}.
 
 § 3 Abrechnung
-Der Vermieter rechnet jährlich nach dem tatsächlichen Verbrauch ab. Grundlage: ${VS(v.preisbasis)}. Die Rechnung des Versorgers wird auf Wunsch zur Einsicht vorgelegt. Nachzahlungen sind innerhalb von 30 Tagen nach Zugang der Abrechnung fällig, Guthaben werden erstattet oder verrechnet. Der Abschlag kann nach der Abrechnung angemessen angepasst werden.
+Der Vermieter rechnet jährlich nach dem tatsächlichen Verbrauch ab. Grundlage: ${VS(v.preisbasis)}. Abgerechnet werden höchstens die tatsächlichen Kosten des Vermieters beim Versorger, ohne Aufschlag. Die Rechnung des Versorgers wird auf Wunsch zur Einsicht vorgelegt. Nachzahlungen sind innerhalb von 30 Tagen nach Zugang der Abrechnung fällig, Guthaben werden erstattet oder verrechnet. Der Abschlag kann nach der Abrechnung angemessen angepasst werden.
 
 § 4 Ablesung
 Der Zähler wird zum Ende des Abrechnungszeitraums sowie bei Ein- und Auszug abgelesen. Der Mieter ermöglicht den Zugang nach Ankündigung.
 
-§ 5 Sonstiges
+§ 5 Laufzeit${/Strom/.test(v.medium||"")?" und freie Wahl":""}
+Diese Vereinbarung ist vom Mietvertrag unabhängig und kann von beiden Seiten mit einer Frist von einem Monat zum Monatsende in Textform gekündigt werden.${/Strom/.test(v.medium||"")?" Der Mieter kann stattdessen jederzeit einen eigenen Stromzähler beim Netzbetreiber und einen Stromlieferanten seiner Wahl wählen; der Vermieter unterstützt ihn dabei.":""}
+
+§ 6 Sonstiges
 ${v.sonst?v.sonst:"Keine weiteren Vereinbarungen."}`},
  rate:{t:"Ratenzahlungsvereinbarung (Mietrückstand)",d:"Rückstand anerkennen und in Raten zusätzlich zur laufenden Miete abzahlen.",f:[...CTX_F,
   {k:"objAdr",l:"Wohnung / Anschrift",t:"text",full:1},{k:"rueckstand",l:"Gesamtrückstand €",t:"number",req:1},{k:"zeitraum",l:"Für den Zeitraum",t:"text"},

@@ -863,7 +863,7 @@ Object.assign(ACT,{
   wlEdit:d=>{ const m=st.data.mieter[d.id]; if(!m) return; const W=m.wlan||{};
     openSheet(`<div class="spread"><h2>WLAN – ${esc(m.name)}</h2><button class="btn sm ghost" data-act="close">Schließen</button></div>
     <div class="fields">${fld("Internet",sel("wle_art",[["separat","Eigene Leistung mit monatlicher Gebühr"],["inklusive","In der Miete enthalten"],["keins","Kein Internet über mich"]],W.art||"separat"),1)}${fld("Gebühr € pro Monat",inp("wle_g",W.gebuehr,"number"))}${fld("Bezahlung",sel("wle_z",[["mit Miete","Mit der Miete überwiesen"],["separat","Eigene Überweisung (von Hand abhaken)"]],W.zahlweise||"mit Miete"))}${fld("Gilt ab",inp("wle_s",W.seit||m.beginn||today(),"date"))}${wlSysOf(m)==="fritzrep"?fld("Netzname des Repeaters",inp("wle_n",W.ssid||wlSsidVorschlag(m),"text"),1):fld("VLAN",inp("wle_v",W.vlan||wlVlan(m),"number"))}</div>
-    <div class="small">Tipp: Für eine Sperre bei Nichtzahlung braucht es die schriftliche „Vereinbarung Internet/WLAN“ (unter Muster-Verträge → Zusatzverträge).</div>
+    <div class="note warn">Vor dem ersten Mieter mit Gebühr: 1) Erlaubt dein Internetvertrag die Weitergabe gegen Geld? 2) Meldepflicht bei der Bundesnetzagentur prüfen (Internet gegen Entgelt). Keine Rechtsberatung.</div><div class="small">Tipp: Für eine Sperre bei Nichtzahlung braucht es die schriftliche „Vereinbarung Internet/WLAN“ (unter Muster-Verträge → Zusatzverträge).</div>
     <div class="row end"><button class="btn" data-act="close">Abbrechen</button><button class="btn" data-act="wlVtr" data-id="${esc(m.id)}">Vereinbarung erstellen</button><button class="btn pri" id="wle_ok">Speichern</button></div>`);
     $("#wle_ok").onclick=async()=>{ const art=val("wle_art"); const patch={art,gebuehr:nval("wle_g")||0,zahlweise:val("wle_z"),seit:val("wle_s"),vlan:(document.getElementById("wle_v")?nval("wle_v"):null)||W.vlan||wlVlan(m)}; if(document.getElementById("wle_n")){ patch.ssid=(val("wle_n")||wlSsidVorschlag(m)).slice(0,32); patch.mieterName=m.name; } if(art==="keins"){ patch.status=null; } else if(!W.key){ patch.key=wlKey(); patch.status="aktiv"; }
       const W2=await wlSet(m,patch,W.art?"Einstellungen geändert":"WLAN eingerichtet"); closeSheet(); if(!W.key&&W2.key){ m.wlan=W2; wlShowKey(m,"WLAN-Zugang eingerichtet"); } else { toast("Gespeichert"); render(); } }; },
@@ -906,10 +906,13 @@ Der Mieter nutzt den Zugang nur im Rahmen der Gesetze. Er ist für seine Nutzung
 § 4 Sperre bei Zahlungsverzug
 Ist der Mieter mit Zahlungen aus dieser Vereinbarung mit mindestens 100 EUR in Verzug, darf der Vermieter den Internetzugang sperren, nachdem er die Sperre mindestens zwei Wochen vorher schriftlich angedroht und auf die Möglichkeit gerichtlichen Rechtsschutzes hingewiesen hat. Die Sperre betrifft nur den Internetzugang. Nach Ausgleich des Rückstands wird der Zugang unverzüglich mit einem neuen Passwort wieder freigeschaltet.
 
-§ 5 Laufzeit
+§ 5 Keine Mietsache, freie Wahl
+Der Internetzugang ist nicht Bestandteil der Mietsache. Bei Störungen wird nur die Internet-Gebühr anteilig erstattet; die Miete bleibt davon unberührt. Der Mieter kann jederzeit einen eigenen Internetanschluss bei einem Anbieter seiner Wahl nutzen.
+
+§ 6 Laufzeit
 Die Vereinbarung läuft auf unbestimmte Zeit und kann von beiden Seiten mit einer Frist von einem Monat zum Monatsende in Textform gekündigt werden. Sie endet spätestens mit dem Mietverhältnis.
 
-§ 6 Sonstiges
+§ 7 Sonstiges
 ${v.sonst?v.sonst:"Keine weiteren Vereinbarungen."}`};
   const BF=[...CTX_F,{k:"lage",l:"Wohnung / Lage",t:"text"}];
   VTPL.wlDroh={t:"Ankündigung einer Sperre des Internetzugangs",einseitig:1,d:"Brief bei offener Internet-Gebühr ab 100 €: Zahlungsfrist und Sperre frühestens 2 Wochen später.",f:[...BF,
@@ -980,7 +983,8 @@ function wlBriefFelder(k,m){ const w=wohn(m.wohnungId), o=w?st.data.objekte[w.ob
   return b; }
 function wlPortal(m){ const W=m.wlan; if(!W||!W.art||W.art==="keins") return null; const o=st.data.objekte[wohn(m.wohnungId)?.objektId]||{}; const R=wlRueck(m);
   return {ssid:wlSsid(m),key:W.status==="gesperrt"?null:W.key,status:W.status||"aktiv",rueckstand:R.betrag,angedroht:!!W.angedrohtAm&&W.status!=="gesperrt",sperreAb:W.sperreAb||null}; }
-function wlAttention(att){ list("mieter").filter(m=>m.aktiv!==false&&m.wlan?.art==="separat").forEach(m=>{ const S=wlState(m); const oid=wohn(m.wohnungId)?.objektId;
+function eichAttention(att){ const y=new Date().getFullYear(); list("vertraege").filter(v=>v.tpl==="verbrauch"&&v.status!=="Beendet"&&v.felder?.eichjahr).forEach(v=>{ const f=v.felder; const n=/Strom/.test(f.medium||"")?8:5; const bis=(+f.eichjahr)+n; if(y>=bis){ const m=st.data.mieter[v.mieterId]; att.push({c:y>bis?"bad":"warn",t:`Eichfrist Zwischenzähler ${f.zaehlerNr||""}`,s:`${m?.name||""} · ${f.medium||""} · ${y>bis?"abgelaufen":"läuft Ende "+bis+" ab"} – neu eichen oder tauschen, sonst ist die Abrechnung angreifbar`,a:""}); } }); }
+function wlAttention(att){ try{ eichAttention(att); }catch(e){} list("mieter").filter(m=>m.aktiv!==false&&m.wlan?.art==="separat").forEach(m=>{ const S=wlState(m); const oid=wohn(m.wohnungId)?.objektId;
   if(S.darfSperren) att.push({c:"bad",t:`Internet sperren möglich: ${m.name}`,s:`${eur(S.R.betrag)} offen, Sperre am ${fmtDate(S.W.angedrohtAm)} angedroht`,a:`<button class="btn sm" data-act="wlGo" data-o="${esc(oid)}">WLAN</button>`});
   else if(S.darfAndrohen) att.push({c:"warn",t:`Internet-Gebühr offen: ${m.name}`,s:`${eur(S.R.betrag)} – Sperre kann angedroht werden`,a:`<button class="btn sm" data-act="wlGo" data-o="${esc(oid)}">WLAN</button>`}); }); }
 

@@ -16,3 +16,6 @@ Miete anpassen, Anlage V & Grundsteuer, Brief per Post, Sprache speichert automa
 Logo mittig oben und Fußzeile mit Vermieterdaten (Name, Adresse, Telefon, E-Mail, IBAN) auf jeder PDF-Seite, Vertrags-Automatik (Mieter-Anfrage → Vertrag → Kurz-Übersicht → Unterschrift in der Mieter-App → Gegenzeichnen). Neue Datei: `erweiterungen.js`.
 
 Neu (23.11. spät): CO₂-Kostenaufteilung, Datensicherung mit Wiederherstellen, Kautionsabrechnung, Fristen-Kalender (.ics), Rendite je Wohnung, Datenschutzhinweise, Schrift für ş/ğ/Kyrillisch (font-uni*.ttf).
+
+## Eigener Server (ohne Claude-Konto)
+Im Ordner `server/` liegt der eigene Server (Node.js, ohne Zusatzpakete, gleicher Server-Teil wie bei WN Entrümpelung). Er bringt Login für Vermieter, Verwaltung, Mieter und Handwerker, eine gemeinsame Datenbank mit denselben Rechten wie in der Claude-Version, Fotos und PDFs, Umzug-Import und **eigene KI** (Qwen3-VL über Ollama) ohne Kosten pro Foto. Installation mit einem Befehl: siehe [server/ANLEITUNG.md](server/ANLEITUNG.md). An der App selbst ändert sich nichts, der Server bindet den Server-Modus automatisch ein.

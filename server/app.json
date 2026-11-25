@@ -1,0 +1,26 @@
+{
+ "name": "JoumHome",
+ "start": "/",
+ "geschuetzt": ["/index.html"],
+ "logo": "/logo-mark-orig.png",
+ "datenbank": "app.db",
+ "rollen": { "owner": "Vermieter", "admin": "Verwaltung", "interact": "Mieter / Handwerker" },
+ "zugangsRollen": ["interact", "admin", "owner"],
+ "personen": [
+  { "col": "mieter", "id": "userId", "name": "name", "rolle": "interact", "art": "Mieter" },
+  { "col": "handwerker", "id": "userId", "name": "name", "rolle": "interact", "art": "Handwerker" },
+  { "col": "rollen", "id": "$id", "name": "name", "rolle": "admin", "art": "Verwaltung" }
+ ],
+ "eigeneDokumente": [],
+ "rechte": [
+  {"path":"","read":"admin","write":"admin"},
+  {"path":"objekte","read":"interact","write":"admin"},{"path":"wohnungen","read":"interact","write":"admin"},
+  {"path":"brett","read":"interact","write":"admin"},{"path":"garten","read":"interact","write":"admin"},{"path":"rollen","read":"interact","write":"admin"},
+  {"path":"schaeden","read":"interact","write":"interact"},{"path":"verstoesse","read":"interact","write":"interact"},
+  {"path":"zaehler","read":"interact","write":"interact"},{"path":"reinigung","read":"interact","write":"interact"},{"path":"speedtests","read":"interact","write":"interact"},
+  {"path":"portal","read":"admin","write":"admin"},{"path":"portal/{self}","read":"interact","write":"admin"},
+  {"path":"eingang","read":"admin","write":"admin"},{"path":"eingang/{self}","read":"interact","write":"interact"},
+  {"path":"hwportal","read":"admin","write":"admin"},{"path":"hwportal/{self}","read":"interact","write":"admin"},
+  {"path":"hweingang","read":"admin","write":"admin"},{"path":"hweingang/{self}","read":"interact","write":"interact"}
+ ]
+}

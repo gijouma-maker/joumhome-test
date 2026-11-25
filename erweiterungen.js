@@ -988,8 +988,120 @@ function wlAttention(att){ try{ eichAttention(att); }catch(e){} list("mieter").f
   if(S.darfSperren) att.push({c:"bad",t:`Internet sperren möglich: ${m.name}`,s:`${eur(S.R.betrag)} offen, Sperre am ${fmtDate(S.W.angedrohtAm)} angedroht`,a:`<button class="btn sm" data-act="wlGo" data-o="${esc(oid)}">WLAN</button>`});
   else if(S.darfAndrohen) att.push({c:"warn",t:`Internet-Gebühr offen: ${m.name}`,s:`${eur(S.R.betrag)} – Sperre kann angedroht werden`,a:`<button class="btn sm" data-act="wlGo" data-o="${esc(oid)}">WLAN</button>`}); }); }
 
+/* =========================================================
+   15) Marktcheck 3: SEPA-Lastschrift, Steuerberater-Export, Wert & Vermögen, Mieter-Verlauf
+   ========================================================= */
+Object.assign(FIN_SUB,{sepa:"Miete per Lastschrift (SEPA)",export:"Export für Steuerberater",wert:"Wert & Vermögen"});
+const xe=x=>String(x??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const sepaTxt=x=>String(x||"").replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/Ä/g,"Ae").replace(/Ö/g,"Oe").replace(/Ü/g,"Ue").replace(/ß/g,"ss").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 \/\-?:().,'+]/g," ").replace(/\s+/g," ").trim();
+const ibanN=x=>String(x||"").replace(/\s+/g,"").toUpperCase();
+function ibanOk(x){ const i=ibanN(x); if(!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(i)) return false; const r=(i.slice(4)+i.slice(0,4)).replace(/[A-Z]/g,c=>c.charCodeAt(0)-55); let m=0; for(const d of r) m=(m*10+ +d)%97; return m===1; }
+function sepaRef(m){ return ("JH-"+String(m.id).replace(/[^A-Za-z0-9]/g,"")).slice(0,35); }
+function sepaMieter(){ return list("mieter").filter(m=>m.aktiv!==false&&m.sepa?.aktiv&&ibanOk(m.sepa.iban||m.iban)); }
+function vFin_sepa(){
+  const c=st.cfg||{}; const ms=list("mieter").filter(m=>m.aktiv!==false);
+  const nm=addM(today(),1).slice(0,7); const ymSel=st.sepaYm||nm; const tag=st.sepaTag||`${ymSel}-03`;
+  const ok=sepaMieter(); const sum=ok.reduce((s,m)=>s+sollOf(m.wohnungId),0);
+  return `${finBack("sepa")}<section class="card" style="display:flex;flex-direction:column;gap:8px"><h3>Deine Daten als Zahlungsempfänger</h3>
+   <div class="fields">${fld("Gläubiger-ID",inp("sp_gid",c.glaeubigerId,"text","DE98ZZZ09999999999"))}${fld("IBAN Mietkonto",inp("sp_iban",c.iban,"text"))}${fld("BIC (optional)",inp("sp_bic",c.bic,"text"))}${fld("Name auf dem Konto",inp("sp_nm",c.kontoName||c.name,"text"))}</div>
+   <div class="row"><button class="btn sm pri" id="sp_save">Speichern</button></div>
+   <div class="small">Die Gläubiger-ID bekommst du kostenlos online bei der Deutschen Bundesbank. Deine Bank muss Lastschriften für dein Konto freischalten (Inkassovereinbarung).</div></section>
+  <section class="list"><div class="sec-title"><h2>Mandate der Mieter</h2><span>${ok.length}/${ms.length}</span></div>
+  ${ms.map(m=>{ const S=m.sepa||{}; const ib=S.iban||m.iban; return `<div class="item s-${S.aktiv?"ok":"neutral"}"><div class="head"><div><b>${esc(m.name)}</b><div class="meta">${esc(wohnFull(m.wohnungId))} · ${eur(sollOf(m.wohnungId))}/Monat${ib?` · ${esc(ibanN(ib).replace(/(.{4})/g,"$1 ").trim())}`:""}</div></div>${S.aktiv?`<span class="pill ok">Mandat aktiv</span>`:`<span class="pill">kein Mandat</span>`}</div>
+   ${ib&&!ibanOk(ib)?`<div class="small">IBAN ist ungültig – bitte prüfen.</div>`:""}
+   <div class="row">${S.aktiv?`<button class="btn sm" data-act="spAus" data-id="${esc(m.id)}">Mandat beenden</button>`:`<button class="btn sm pri" data-act="spMandat" data-id="${esc(m.id)}">Mandat zur Unterschrift</button><button class="btn sm" data-act="spPapier" data-id="${esc(m.id)}">Liegt auf Papier vor</button>`}</div></div>`; }).join("")||emptyBox("Keine aktiven Mieter.")}</section>
+  <section class="card" style="display:flex;flex-direction:column;gap:8px"><h3>Monatsdatei für deine Bank</h3>
+   <div class="fields">${fld("Monat",inp("sp_ym",ymSel,"month"))}${fld("Einzug am",inp("sp_tag",tag,"date"))}</div>
+   <div class="small">${ok.length} Mieter · zusammen ${eur(sum)}. Die Datei lädst du im Online-Banking unter „SEPA-Datei / Sammellastschrift hochladen“ hoch. Spätestens 2 Bankarbeitstage vor dem Einzugstag hochladen.</div>
+   <div class="row"><button class="btn pri" id="sp_xml"${ok.length?"":" disabled"}>SEPA-Datei erstellen</button></div>
+   <div class="small">Mieter können eine Lastschrift 8 Wochen lang zurückholen. Das siehst du dann wie gewohnt bei den Mieteingängen. Keine Rechtsberatung.</div></section>`;
+}
+function sepaXml(ms,tag){
+  const c=st.cfg||{}; const now=new Date().toISOString().slice(0,19); const id=("JH"+Date.now()).slice(0,35);
+  const rows=ms.map(m=>({m,betrag:r2(sollOf(m.wohnungId)),seq:m.sepa?.letzter?"RCUR":"FRST"})).filter(x=>x.betrag>0);
+  const grp=["FRST","RCUR"].map(sq=>rows.filter(r=>r.seq===sq)).filter(g=>g.length);
+  const ctrl=r2(rows.reduce((s,x)=>s+x.betrag,0)).toFixed(2);
+  const pmt=g=>{ const sm=r2(g.reduce((s,x)=>s+x.betrag,0)).toFixed(2); return `<PmtInf><PmtInfId>${id}-${g[0].seq}</PmtInfId><PmtMtd>DD</PmtMtd><BtchBookg>true</BtchBookg><NbOfTxs>${g.length}</NbOfTxs><CtrlSum>${sm}</CtrlSum><PmtTpInf><SvcLvl><Cd>SEPA</Cd></SvcLvl><LclInstrm><Cd>CORE</Cd></LclInstrm><SeqTp>${g[0].seq}</SeqTp></PmtTpInf><ReqdColltnDt>${tag}</ReqdColltnDt><Cdtr><Nm>${xe(sepaTxt(c.kontoName||c.name).slice(0,70))}</Nm></Cdtr><CdtrAcct><Id><IBAN>${ibanN(c.iban)}</IBAN></Id></CdtrAcct><CdtrAgt><FinInstnId>${c.bic?`<BICFI>${xe(String(c.bic).trim().toUpperCase())}</BICFI>`:`<Othr><Id>NOTPROVIDED</Id></Othr>`}</FinInstnId></CdtrAgt><ChrgBr>SLEV</ChrgBr><CdtrSchmeId><Id><PrvtId><Othr><Id>${xe(String(c.glaeubigerId).replace(/\s+/g,"").toUpperCase())}</Id><SchmeNm><Prtry>SEPA</Prtry></SchmeNm></Othr></PrvtId></Id></CdtrSchmeId>
+${g.map(({m,betrag})=>`<DrctDbtTxInf><PmtId><EndToEndId>${xe(("JH"+tag.replace(/-/g,"")+String(m.id).replace(/[^A-Za-z0-9]/g,"")).slice(0,35))}</EndToEndId></PmtId><InstdAmt Ccy="EUR">${betrag.toFixed(2)}</InstdAmt><DrctDbtTx><MndtRltdInf><MndtId>${xe(m.sepa.ref||sepaRef(m))}</MndtId><DtOfSgntr>${m.sepa.datum||today()}</DtOfSgntr></MndtRltdInf></DrctDbtTx><DbtrAgt><FinInstnId><Othr><Id>NOTPROVIDED</Id></Othr></FinInstnId></DbtrAgt><Dbtr><Nm>${xe(sepaTxt(m.sepa.kontoinhaber||m.name).slice(0,70))}</Nm></Dbtr><DbtrAcct><Id><IBAN>${ibanN(m.sepa.iban||m.iban)}</IBAN></Id></DbtrAcct><RmtInf><Ustrd>${xe(sepaTxt(`Miete ${fmtYm(tag.slice(0,7),"de")} ${wohn(m.wohnungId)?.lage||""}`).slice(0,140))}</Ustrd></RmtInf></DrctDbtTxInf>`).join("\n")}
+</PmtInf>`; };
+  return {n:rows.length,sum:ctrl,xml:`<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.08"><CstmrDrctDbtInitn><GrpHdr><MsgId>${id}</MsgId><CreDtTm>${now}</CreDtTm><NbOfTxs>${rows.length}</NbOfTxs><CtrlSum>${ctrl}</CtrlSum><InitgPty><Nm>${xe(sepaTxt(c.kontoName||c.name).slice(0,70))}</Nm></InitgPty></GrpHdr>
+${grp.map(pmt).join("\n")}
+</CstmrDrctDbtInitn></Document>`};
+}
+if(typeof VTPL==="object"&&!VTPL.sepa){
+  VTPL.sepa={t:"SEPA-Lastschriftmandat (Miete)",nurMieter:1,d:"Erlaubt dir, die Miete monatlich vom Konto des Mieters einzuziehen.",f:[...CTX_F,
+   {k:"gid",l:"Gläubiger-ID",t:"text",req:1},{k:"ref",l:"Mandatsreferenz",t:"text",req:1},{k:"objAdr",l:"Wohnung",t:"text",full:1},{k:"betrag",l:"Monatlicher Betrag €",t:"number",req:1},{k:"tag",l:"Einzug jeweils am (Tag)",t:"number",def:3},
+   {k:"inhaber",l:"Kontoinhaber",t:"text",req:1},{k:"iban",l:"IBAN des Mieters",t:"text",req:1}],
+   text:v=>`Zahlungsempfänger: ${VS(v.vName)}, ${VS(v.vAdr)}
+Gläubiger-Identifikationsnummer: ${VS(v.gid)}
+Mandatsreferenz: ${VS(v.ref)}
+
+SEPA-Lastschriftmandat
+Ich ermächtige ${VS(v.vName)}, Zahlungen aus dem Mietverhältnis über die Wohnung ${VS(v.objAdr)} von meinem Konto mittels Lastschrift einzuziehen. Zugleich weise ich mein Kreditinstitut an, die von ${VS(v.vName)} auf mein Konto gezogenen Lastschriften einzulösen.
+
+Hinweis: Ich kann innerhalb von acht Wochen, beginnend mit dem Belastungsdatum, die Erstattung des belasteten Betrages verlangen. Es gelten dabei die mit meinem Kreditinstitut vereinbarten Bedingungen.
+
+Vorabankündigung: Eingezogen wird monatlich die Miete, derzeit ${VE(v.betrag)}, jeweils am ${VS(v.tag||3)}. des Monats (fällt der Tag auf ein Wochenende oder einen Feiertag, am nächsten Bankarbeitstag). Ändert sich der Betrag, teilt der Vermieter dies mindestens 5 Tage vor dem Einzug in Textform mit.
+
+Kontoinhaber: ${VS(v.inhaber)}
+IBAN: ${VS(v.iban)}
+
+Das Mandat kann jederzeit in Textform beim Vermieter widerrufen werden.`};
+  try{ const g=VGRUPPEN.find(x=>x[0]==="Zusatzverträge"); if(g&&!g[1].includes("sepa")) g[1].push("sepa"); }catch(e){}
+}
+document.addEventListener("click",async e=>{ const b=e.target.closest&&e.target.closest("#sp_save,#sp_xml,#ex_csv,#ex_eur"); if(!b) return;
+  if(b.id==="sp_save"){ const gid=val("sp_gid").replace(/\s+/g,"").toUpperCase(), ib=ibanN(val("sp_iban")); if(gid&&!/^[A-Z]{2}\d{2}ZZZ/.test(gid)){ toast("Gläubiger-ID sieht falsch aus (Beispiel DE98ZZZ09999999999)"); return; } if(ib&&!ibanOk(ib)){ toast("IBAN ist ungültig"); return; }
+    const cf={...(st.cfg||{}),glaeubigerId:gid,iban:ib,bic:val("sp_bic").trim().toUpperCase(),kontoName:val("sp_nm")}; try{ await st.db.doc("config/vermieter").set(cf); st.cfg=cf; toast("Gespeichert"); render(); }catch(x){ toast("Speichern fehlgeschlagen"); } return; }
+  if(b.id==="sp_xml"){ const c=st.cfg||{}; if(!c.glaeubigerId||!ibanOk(c.iban)){ toast("Bitte erst Gläubiger-ID und IBAN speichern"); return; } const ym=val("sp_ym"), tag=val("sp_tag"); st.sepaYm=ym; st.sepaTag=tag; if(!tag||tag<today()){ toast("Einzugsdatum muss in der Zukunft liegen"); return; }
+    const ms=sepaMieter(); const X=sepaXml(ms,tag); saveFile(`SEPA_Lastschrift_${ym}.xml`,new Blob([X.xml],{type:"application/xml"}));
+    for(const m of ms){ await dbUpd("mieter",m.id,{sepa:{...m.sepa,letzter:tag}}).catch(()=>{}); }
+    toast(`Datei mit ${X.n} Lastschriften über ${eur(+X.sum)} erstellt`); return; }
+  if(b.id==="ex_csv"){ const y=+val("ex_y"); const R=exRows(y); const head="Datum;Art;Haus;Wohnung;Kategorie;Text;Betrag;MwSt;Beleg"; const q=x=>`"${String(x??"").replace(/"/g,'""')}"`; const n=x=>(+x||0).toFixed(2).replace(".",",");
+    const csv="﻿"+head+"\n"+R.map(r=>[r.datum,r.art,q(r.haus),q(r.wohnung),q(r.kat),q(r.text),n(r.betrag),n(r.mwst),q(r.beleg)].join(";")).join("\n"); saveFile(`Buchungen_${y}.csv`,new Blob([csv],{type:"text/csv"})); return; }
+  if(b.id==="ex_eur"){ const y=+val("ex_y"); const E=eurCalc(y); const q=x=>`"${String(x??"").replace(/"/g,'""')}"`; const n=x=>(+x||0).toFixed(2).replace(".",",");
+    let csv="﻿Haus;Posten;Betrag\n"; E.forEach(h=>{ csv+=`${q(h.name)};Mieteinnahmen;${n(h.ein)}\n`; Object.entries(h.kat).forEach(([k,v])=>{ csv+=`${q(h.name)};${q("Ausgabe: "+k)};${n(-v)}\n`; }); csv+=`${q(h.name)};Überschuss;${n(h.ein-h.aus)}\n`; }); saveFile(`Einnahmen-Ueberschuss_${y}.csv`,new Blob([csv],{type:"text/csv"})); return; }
+});
+Object.assign(ACT,{
+  spMandat:d=>{ const m=st.data.mieter[d.id]; if(!m) return; const c=st.cfg||{}; if(!c.glaeubigerId){ toast("Bitte erst oben deine Gläubiger-ID speichern"); return; } const w=wohn(m.wohnungId), o=w?st.data.objekte[w.objektId]:null;
+    openVertrag("sepa",{mieterId:m.id,felder:{...ctxDef({m,w,o}),gid:c.glaeubigerId,ref:sepaRef(m),objAdr:[o?.adresse,w?.lage].filter(Boolean).join(", "),betrag:sollOf(m.wohnungId)||null,tag:3,inhaber:m.name,iban:m.iban||""}}); },
+  spPapier:async d=>{ const m=st.data.mieter[d.id]; if(!m) return; const ib=prompt("IBAN des Mieters laut Mandat:",m.iban||""); if(ib==null) return; if(!ibanOk(ib)){ toast("IBAN ist ungültig"); return; } const dat=prompt("Mandat unterschrieben am (JJJJ-MM-TT):",today()); if(!dat) return;
+    await dbUpd("mieter",m.id,{iban:ibanN(ib),sepa:{aktiv:true,ref:sepaRef(m),datum:dat,iban:ibanN(ib),kontoinhaber:m.name,quelle:"Papier"}}); toast("Mandat gespeichert"); render(); },
+  spAus:async d=>{ const m=st.data.mieter[d.id]; if(!m) return; if(!await ask(`Lastschrift-Mandat von ${m.name} beenden?`,"Beenden")) return; await dbUpd("mieter",m.id,{sepa:{...(m.sepa||{}),aktiv:false,beendet:today()}}); render(); }
+});
+/* Steuerberater-Export */
+function exRows(y){ const ys=String(y); const R=[];
+  list("zahlungen").filter(z=>(+z.bezahlt||0)>0&&String(z.eingang||z.monat||"").startsWith(ys)).forEach(z=>{ const w=wohn(z.wohnungId); R.push({datum:z.eingang||((z.monat||"")+"-01"),art:"Einnahme",haus:objName(w?.objektId),wohnung:w?.lage||"",kat:"Miete",text:`Miete ${z.monat||""}`,betrag:+z.bezahlt||0,mwst:0,beleg:""}); });
+  list("ausgaben").filter(a=>String(a.datum||"").startsWith(ys)&&(+a.betrag||0)>0).forEach(a=>{ R.push({datum:a.datum,art:"Ausgabe",haus:objName(a.objektId),wohnung:wohn(a.wohnungId)?.lage||"",kat:a.kategorie||"Sonstiges",text:[a.haendler,a.beschreibung].filter(Boolean).join(" – ")+(a.kostentraeger==="Mieter"?" (vom Mieter zu zahlen)":"")+(a.umlage?" (umlagefähig)":""),betrag:-(+a.betrag||0),mwst:+a.mwst||0,beleg:a.belegAsset?assetUrl(a.belegAsset):""}); });
+  return R.sort((a,b)=>String(a.datum).localeCompare(String(b.datum))); }
+function eurCalc(y){ const R=exRows(y); const H={}; R.forEach(r=>{ const h=H[r.haus]||(H[r.haus]={name:r.haus||"ohne Haus",ein:0,aus:0,kat:{}}); if(r.betrag>0) h.ein+=r.betrag; else { h.aus+=-r.betrag; h.kat[r.kat]=(h.kat[r.kat]||0)+(-r.betrag); } }); return Object.values(H); }
+function vFin_export(){ const y=+(st.exY||new Date().getFullYear()-(new Date().getMonth()<3?1:0)); const E=eurCalc(y);
+  return `${finBack("export")}<section class="card" style="display:flex;flex-direction:column;gap:8px"><div class="fields">${fld("Jahr",`<select id="ex_y" onchange="st.exY=this.value;render()">${[0,1,2,3].map(i=>new Date().getFullYear()-i).map(j=>`<option${j===y?" selected":""}>${j}</option>`).join("")}</select>`)}</div>
+   <div class="row"><button class="btn pri" id="ex_csv">Buchungsliste (CSV)</button><button class="btn" id="ex_eur">Einnahmen-Überschuss je Haus (CSV)</button><button class="btn" data-act="stb">Steuerberater-Paket (PDF + Excel)</button></div>
+   <div class="small">Die CSV-Dateien öffnen sich in Excel. Dein Steuerberater kann sie in sein Programm (z. B. DATEV) einlesen. Jede Ausgabe enthält den Link zum Beleg.</div></section>
+  <section class="list"><div class="sec-title"><h2>Einnahmen-Überschuss ${y}</h2></div>${E.map(h=>`<div class="item"><div class="head"><div><b>${esc(h.name)}</b><div class="meta">Einnahmen ${eur(h.ein)} · Ausgaben ${eur(h.aus)}</div></div><span class="pill ${h.ein-h.aus>=0?"ok":"bad"}">${eur(h.ein-h.aus)}</span></div>${Object.entries(h.kat).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="small">${esc(k)}: ${eur(v)}</div>`).join("")}</div>`).join("")||emptyBox("Keine Buchungen in diesem Jahr.")}</section>
+  <p class="small">Ohne Abschreibung (AfA) und Kreditzinsen aus Daueraufträgen – die stehen im Steuerberater-Paket und in Anlage V. Keine Steuerberatung.</p>`; }
+/* Wert & Vermögen */
+function wertOf(o){ const k=o.kauf||{}; const W=o.wert||{}; const wert=num(W.betrag)||num(k.kaufpreis)||0; const rest=num(W.restschuld)||0; const jm=wsOf(o.id).reduce((s,w)=>s+(+w.kalt||0),0)*12; return {wert,rest,ek:wert-rest,jm,quelle:W.betrag?(W.quelle||"eigene Schätzung"):(k.kaufpreis?"Kaufpreis":""),stand:W.stand||"",faktor:jm?wert/jm:0,brutto:wert?jm/wert:0,ltv:wert?rest/wert:0}; }
+function vFin_wert(){ const os=list("objekte"); const A=os.map(o=>({o,...wertOf(o)})); const T=A.reduce((t,a)=>({wert:t.wert+a.wert,rest:t.rest+a.rest,jm:t.jm+a.jm}),{wert:0,rest:0,jm:0});
+  return `${finBack("wert")}<section class="card"><h3>Gesamt</h3><dl class="kv"><dt>Wert aller Häuser</dt><dd>${eur(T.wert)}</dd><dt>Restschuld</dt><dd>${eur(T.rest)}</dd><dt>Dein Eigenkapital</dt><dd><b>${eur(T.wert-T.rest)}</b></dd><dt>Kaltmiete pro Jahr</dt><dd>${eur(T.jm)}</dd><dt>Bruttorendite</dt><dd>${T.wert?(T.jm/T.wert*100).toFixed(1).replace(".",",")+" %":"–"}</dd></dl></section>
+  <section class="list"><div class="sec-title"><h2>Je Haus</h2><span>${os.length}</span></div>${A.map(a=>`<div class="item"><div class="head"><div><b>${esc(a.o.name||a.o.adresse||a.o.id)}</b><div class="meta">Wert ${eur(a.wert)}${a.quelle?` (${esc(a.quelle)}${a.stand?", "+esc(fmtDate(a.stand)):""})`:""} · Restschuld ${eur(a.rest)}</div></div><span class="pill ok">${eur(a.ek)}</span></div>
+   <div class="small">Kaltmiete ${eur(a.jm)}/Jahr · Faktor ${a.faktor?a.faktor.toFixed(1).replace(".",","):"–"} · Bruttorendite ${a.brutto?(a.brutto*100).toFixed(1).replace(".",",")+" %":"–"} · Beleihung ${a.wert?Math.round(a.ltv*100)+" %":"–"}</div>
+   <div class="row"><button class="btn sm" data-act="wertEdit" data-o="${esc(a.o.id)}">Wert & Restschuld eintragen</button></div></div>`).join("")||emptyBox("Noch keine Häuser.")}</section>
+  <p class="small">Der Wert ist deine Schätzung (z. B. aus Bodenrichtwert, Gutachten oder Vergleichsangeboten). Die Restschuld steht auf dem Jahreskontoauszug deiner Bank.</p>`; }
+ACT.wertEdit=d=>{ const o=st.data.objekte[d.o]; if(!o) return; const W=o.wert||{};
+  openSheet(`<div class="spread"><h2>Wert – ${esc(o.name||"")}</h2><button class="btn sm ghost" data-act="close">Schließen</button></div><div class="fields">${fld("Geschätzter Wert €",inp("we_b",W.betrag??o.kauf?.kaufpreis,"number"))}${fld("Quelle",inp("we_q",W.quelle,"text","z. B. Gutachten, Bank, eigene Schätzung"))}${fld("Restschuld aller Kredite €",inp("we_r",W.restschuld,"number"))}${fld("Stand",inp("we_s",W.stand||today(),"date"))}</div><div class="row end"><button class="btn" data-act="close">Abbrechen</button><button class="btn pri" id="we_ok">Speichern</button></div>`);
+  $("#we_ok").onclick=async()=>{ await dbUpd("objekte",o.id,{wert:{betrag:nval("we_b"),quelle:val("we_q"),restschuld:nval("we_r"),stand:val("we_s")}}); closeSheet(); toast("Gespeichert"); render(); }; };
+/* Mieter-Verlauf je Wohnung */
+function vVerlauf(oid){ const ws=wsOf(oid); const t=today();
+  return `<section class="list"><div class="sec-title"><h2>Mieter-Verlauf je Wohnung</h2><span>${ws.length}</span></div>${ws.map(w=>{ const ms=list("mieter").filter(m=>m.wohnungId===w.id).sort((a,b)=>String(a.beginn||"").localeCompare(String(b.beginn||"")));
+    const E=[]; let prevEnd=null; ms.forEach(m=>{ const end=m.auszug||(m.aktiv===false?(m.beendet||""):""); if(prevEnd&&m.beginn&&m.beginn>prevEnd){ const d=days(prevEnd,m.beginn); if(d>3) E.push(`<div class="small" style="color:var(--warn,#c80)">Leerstand ${d} Tage (${esc(fmtDate(prevEnd))} – ${esc(fmtDate(m.beginn))})</div>`); }
+      const status=m.beginn&&m.beginn>t?"kommt":end&&end<=t?"früher":"aktuell"; const dauer=m.beginn?Math.max(0,Math.round(days(m.beginn,end&&end<t?end:t)/30.4)):0;
+      E.push(`<div class="small"><span class="pill ${status==="aktuell"?"ok":status==="kommt"?"warn":""}">${status}</span> <b>${esc(m.name)}</b> · ${m.beginn?esc(fmtDate(m.beginn)):"?"} – ${end?esc(fmtDate(end)):"heute"}${status!=="kommt"&&dauer?` · ${dauer>=12?Math.floor(dauer/12)+" J. "+(dauer%12)+" M.":dauer+" Monate"}`:""}${m.kalt?` · ${eur(+m.kalt)} kalt`:""}</div>`); if(end) prevEnd=end; });
+    return `<div class="item"><div class="head"><div><b>${esc(w.lage||w.id)}</b><div class="meta">${w.flaeche?esc(String(w.flaeche))+" m² · ":""}heute ${eur(+w.kalt||0)} kalt</div></div><span class="pill">${ms.length} Mieter</span></div>${E.join("")||`<div class="small">Noch keine Mieter erfasst.</div>`}</div>`; }).join("")||emptyBox("Keine Wohnungen.")}</section>`; }
+
 /* öffentlich für index.html */
-Object.assign(window,{vWlan,wlKey,wlVlan,wlSsid,wlSsidVorschlag,wlSysOf,wlBriefFelder,wlTile,wlPortal,wlAttention,belegZuordnung,belegTicketListe,vNK,vWartung,vBegehung,vMietanp,vAnlV,vRendite,kiSchaden,mieterExtra,extraAttention:(att)=>{ extraAttention(att); try{ extraAttention2(att); }catch(e){ console.warn(e); } try{ wlAttention(att); }catch(e){ console.warn(e); } },bwBox,postSheet,nkCalc,zahlTrend,mietCalc,anlvCalc,dsSheet,bkSheet,fristenSheet});
+Object.assign(window,{vFin_sepa,vFin_export,vFin_wert,vVerlauf,ibanOk,sepaXml,vWlan,wlKey,wlVlan,wlSsid,wlSsidVorschlag,wlSysOf,wlBriefFelder,wlTile,wlPortal,wlAttention,belegZuordnung,belegTicketListe,vNK,vWartung,vBegehung,vMietanp,vAnlV,vRendite,kiSchaden,mieterExtra,extraAttention:(att)=>{ extraAttention(att); try{ extraAttention2(att); }catch(e){ console.warn(e); } try{ wlAttention(att); }catch(e){ console.warn(e); } },bwBox,postSheet,nkCalc,zahlTrend,mietCalc,anlvCalc,dsSheet,bkSheet,fristenSheet});
 })();
 
 /* =========================================================
@@ -1067,6 +1179,7 @@ async function vtFinish(id){
   const patch={pdfAsset:pdfId,status:"Unterschrieben",fertig:new Date().toISOString()};
   await st.db.collection("vertraege").doc(id).update(patch); Object.assign(v,patch);
   if(v.anfrageId) await st.db.collection("anfragen").doc(v.anfrageId).update({status:"Erledigt",vertragId:id}).catch(()=>{});
+  if(v.tpl==="sepa"&&v.mieterId){ const f=v.felder||{}; const ib=String(f.iban||"").replace(/\s+/g,"").toUpperCase(); await st.db.collection("mieter").doc(v.mieterId).update({iban:ib,sepa:{aktiv:true,ref:f.ref,datum:today(),iban:ib,kontoinhaber:f.inhaber||"",quelle:"App",vertragId:id}}).catch(()=>{}); }
   if(v.tpl==="wlan"&&v.mieterId){ const m=st.data.mieter[v.mieterId], f=v.felder||{}; if(m){ const W=m.wlan||{}; const nw={...W,...(st.data.objekte[wohn(m.wohnungId)?.objektId]?.wlan?.system==="fritzrep"&&!W.ssid?{ssid:wlSsidVorschlag(m),mieterName:m.name}:{}),art:"separat",gebuehr:+f.gebuehr||W.gebuehr||0,seit:f.beginn||W.seit||today(),zahlweise:W.zahlweise||"mit Miete",vlan:W.vlan||wlVlan(m),vereinbarung:id}; if(!nw.key&&nw.status!=="gesperrt"){ nw.key=wlKey(); nw.status="aktiv"; } await st.db.collection("mieter").doc(m.id).update({wlan:nw}).catch(()=>{}); m.wlan=nw; } }
   if(v.mieterId&&pdfId&&v.tpl==="miet") await st.db.collection("mieter").doc(v.mieterId).update({vertragAsset:pdfId}).catch(()=>{});
   if(typeof syncPortals==="function") syncPortals();

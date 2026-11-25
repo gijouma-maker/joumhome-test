@@ -2361,6 +2361,9 @@ function vFinHub(){
    ${row("jahr",FSVG.jahr,"Jahresabschluss",`Ergebnis je Haus, Anlage V, Steuer-Effekt`)}
    ${row("anlv",FSVG.stb,"Anlage V & Grundsteuer",`Werte für ELSTER je Haus · Grundsteuerbescheid`)}
    ${row("rendite",FSVG.haus,"Rendite je Wohnung",`Welche Wohnung lohnt sich · Leerstand · Cashflow`)}
+   ${row("wert",FSVG.haus,"Wert & Vermögen",`Wert, Restschuld und Eigenkapital je Haus`)}
+   ${row("sepa",FSVG.miete,"Miete per Lastschrift (SEPA)",`Mandate · Monatsdatei für die Bank`)}
+   ${row("export",FSVG.stb,"Export für Steuerberater",`Buchungsliste und Einnahmen-Überschuss als CSV`)}
    <button class="vrow" data-act="stb"><span class="tile">${FSVG.stb}</span><span class="vt"><b>Steuerberater</b><small class="vk">PDF mit Übersicht, Mieteinnahmen, Ausgaben, AfA und Belegen + Excel – per E-Mail senden</small></span><span class="chev">›</span></button>
   </section>
   <p class="small">Alle Steuerzahlen sind Schätzungen, keine Steuerberatung.</p>`;
@@ -3407,7 +3410,7 @@ function vObjekt(oid){
   const tk=objTickets(oid), open=tk.filter(t=>t.s!=="Erledigt").length;
   const med=list("medien").filter(x=>x.objektId===oid), prot=list("protokolle").filter(p=>p.objektId===oid);
   const cov=coverOf(oid), sub=st.osub||"uebersicht";
-  const tabs=`<div class="seg" role="group">${[["uebersicht","Übersicht"],["mieter","Mieter & Verträge"],["tickets",`Tickets (${open})`],["medien",`Fotos & Videos (${med.length})`],["dokumente",`Dokumente (${dokAll(oid).length})`],["inventar",`Inventar (${list("inventar").filter(x=>x.objektId===oid).length})`],["protokolle",`Protokolle (${prot.length})`],["wartung","Wartung"],["begehung","Begehung"],["wlan","WLAN"]].map(([v,l])=>`<button data-act="osub" data-v="${v}" aria-pressed="${sub===v}">${esc(l)}</button>`).join("")}</div>`;
+  const tabs=`<div class="seg" role="group">${[["uebersicht","Übersicht"],["mieter","Mieter & Verträge"],["tickets",`Tickets (${open})`],["medien",`Fotos & Videos (${med.length})`],["dokumente",`Dokumente (${dokAll(oid).length})`],["inventar",`Inventar (${list("inventar").filter(x=>x.objektId===oid).length})`],["protokolle",`Protokolle (${prot.length})`],["wartung","Wartung"],["begehung","Begehung"],["wlan","WLAN"],["verlauf","Verlauf"]].map(([v,l])=>`<button data-act="osub" data-v="${v}" aria-pressed="${sub===v}">${esc(l)}</button>`).join("")}</div>`;
   let body="";
   if(sub==="mieter"){
     body=`<div class="row"><button class="btn pri" data-act="scanVertrag">Vertrag scannen</button><button class="btn" data-act="new" data-col="mieter">Mieter anlegen</button></div>
@@ -3428,6 +3431,8 @@ function vObjekt(oid){
     body=vBegehung(oid);
   } else if(sub==="wlan"&&typeof vWlan==="function"){
     body=vWlan(oid);
+  } else if(sub==="verlauf"&&typeof vVerlauf==="function"){
+    body=vVerlauf(oid);
   } else if(sub==="inventar"){
     body=vInventar(oid);
   } else if(sub==="protokolle"){
@@ -3559,6 +3564,7 @@ function vGeld(){
   if(st.sub.geld==="mietanp") return vMietanp();
   if(st.sub.geld==="anlv") return vAnlV();
   if(st.sub.geld==="rendite") return vRendite();
+  if(typeof window["vFin_"+st.sub.geld]==="function") return window["vFin_"+st.sub.geld]();
   const filt=`<div class="filters"><select data-change="year" aria-label="Jahr">${yearOpts()}</select><select data-change="fObj" aria-label="Objekt"><option value="">Alle Objekte</option>${objOptions(st.fObj)}</select><button class="btn sm" data-act="stb">An Steuerberater</button></div>`;
   if(st.sub.geld==="jahr") return `${finBack(st.sub.geld)}${filt}${vJahr()}`;
   if(st.sub.geld==="steuer") return `${finBack(st.sub.geld)}<div class="filters"><select data-change="year" aria-label="Jahr">${yearOpts()}</select></div>${vSteuer()}`;
@@ -4426,6 +4432,9 @@ const S_FN=[
  ["Finanzen","Geld, Steuer, Kaufverträge, Kredite, Steuerberater an einem Ort","finanzen geld finanzierung kredit darlehen steuer steuerberater",()=>goView("geld","hub")],
  ["Kredit & laufende Kosten","Kreditvertrag, Stadtwerke, Versicherung hochladen","kredit darlehen rate bank finanzierung stadtwerke versicherung laufende kosten fixkosten",()=>ACT.finKosten()],
  ["WLAN je Mieter","Eigenes WLAN-Passwort pro Wohnung, Sperre bei Rückstand","wlan wifi passwort internet router sperren ppsk unifi qr",()=>{ const o=list("objekte")[0]; if(o){ closeSheet(); st.tab="haeuser"; st.objekt=o.id; st.osub="wlan"; render(); } }],
+ ["Lastschrift (SEPA)","Miete per Lastschrift einziehen, Mandat, Bankdatei","sepa lastschrift einzug mandat gläubiger bank datei",()=>goView("geld","sepa")],
+ ["Export für Steuerberater","Buchungsliste und EÜR als CSV","export csv datev steuerberater eür buchungen excel",()=>goView("geld","export")],
+ ["Wert & Vermögen","Wert, Restschuld, Eigenkapital je Haus","wert vermögen eigenkapital restschuld portfolio bewertung",()=>goView("geld","wert")],
  ["Speedtest","Internet-Geschwindigkeit messen","speedtest internet geschwindigkeit wlan schnell",()=>ACT.speed()],
  ["Datensicherung","Automatische Sicherung, Gelöschtes zurückholen, Komplett-Sicherung","backup sicherung datensicherung wiederherstellen geloescht zurueckholen export",()=>ACT.bkOpen()],
  ["Fristen & Termine","Alle Fristen, in den Handy-Kalender übernehmen","fristen termine kalender erinnerung ics deadline",()=>ACT.fristen()],
@@ -4946,6 +4955,10 @@ function insPub(x,w,o){
    <div class="small">1. Text kopieren · 2. Fotos aufs Handy holen · 3. Kleinanzeigen öffnen und einfügen. Dauert 2–3 Minuten.</div>
    <div class="row"><button class="btn pri" id="ip_ct"${ok?"":" disabled"}>1 · Titel + Text kopieren</button><button class="btn" id="ip_fo"${ok?"":" disabled"}>2 · Fotos speichern / teilen</button><a class="btn${ok?"":" dis"}" href="https://www.kleinanzeigen.de/p-anzeige-aufgeben.html" target="_blank" rel="noopener">3 · Kleinanzeigen öffnen</a></div>
    <div class="small">Felder einzeln kopieren:</div><div class="row">${F.map(([l,v])=>`<button class="pill pbtn" data-cp="${esc(v)}">${esc(l)}: ${esc(v)}</button>`).join("")}</div></section>
+  <section class="card"><div class="sec-title"><h3>A2 · ImmoScout24</h3></div>
+   <div class="small">Bei ImmoScout24 gibt es eigene Felder. Kopiere sie einzeln und füge sie dort ein. Die Fotos nimmst du aus Schritt 2.</div>
+   <div class="row"><button class="pill pbtn" data-cp="${esc(x.titel||"")}">Titel</button><button class="pill pbtn" data-cp="${esc(insVollText(x,o))}">Objektbeschreibung</button>${x.ausstattung?`<button class="pill pbtn" data-cp="${esc(Array.isArray(x.ausstattung)?x.ausstattung.join(", "):x.ausstattung)}">Ausstattung</button>`:""}${F.map(([l,v])=>`<button class="pill pbtn" data-cp="${esc(v)}">${esc(l)}</button>`).join("")}</div>
+   <div class="row"><a class="btn${ok?"":" dis"}" href="https://www.immobilienscout24.de/anbieten/" target="_blank" rel="noopener">ImmoScout24 öffnen</a></div></section>
   <section class="card"><div class="sec-title"><h3>B · Claude trägt es für dich ein</h3></div>
    <div class="small">Schreib im Claude-Chat (Projekt JH) den folgenden Satz. Claude füllt die Anzeige in deinem Browser aus, in dem du bei Kleinanzeigen angemeldet bist. Den letzten Klick auf „Anzeige aufgeben“ machst du selbst.</div>
    <div class="row"><button class="btn" data-cp="${esc(auftrag)}">Satz kopieren</button></div></section>

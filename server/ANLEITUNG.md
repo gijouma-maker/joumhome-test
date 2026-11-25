@@ -33,5 +33,10 @@ Unter **„Zugänge verwalten“** (Leiste ganz oben) legen Sie die Zugänge an:
 
 ## Im Alltag
 - **Neue Version:** Auf dem Server `jh-update` eingeben.
-- **Sicherung:** täglich nach `/opt/jh/server/data/sicherung/`, 14 Tage aufbewahrt. Fotos und PDFs liegen in `/opt/jh/server/data/dateien/`. Zusätzlich das Backup des Hosters einschalten.
+- **Datensicherung (mehrfach):**
+  - Die Datenbank wird **3× täglich automatisch gesichert** (6, 14 und 22 Uhr), außerdem bei jedem Neustart und vor jeder Datenübernahme. Die Sicherungen werden **30 Tage** aufbewahrt, in `/opt/jh/server/data/sicherung/`.
+  - Gelöschte Fotos und PDFs landen erst im Papierkorb `sicherung/geloescht/` und werden nach 30 Tagen endgültig gelöscht.
+  - Unter **„Zugänge verwalten → Datensicherung“** kann man jederzeit von Hand sichern und die neueste Sicherung herunterladen. Diese Datei ab und zu auf dem PC oder einem USB-Stick ablegen.
+  - **Wichtig, eine zweite Kopie außerhalb des Servers:** Beim Hoster zusätzlich Speicherplatz buchen (z. B. eine Storage-Box), einbinden und in `.env` `WN_SICHERUNG_KOPIE=/mnt/backup` eintragen. Dann werden alle Sicherungen und Fotos automatisch dorthin kopiert. Zusätzlich die Snapshot- bzw. Backup-Funktion des Hosters einschalten. So sind die Daten auch sicher, wenn der Server ausfällt.
+  - Uhrzeiten und Aufbewahrung lassen sich in `.env` ändern (`WN_SICHERUNG_ZEITEN=6,14,22`, `WN_SICHERUNG_TAGE=30`).
 - **Spracheingabe und Vorlesen** laufen über den Browser (Chrome, Edge, iPhone-Safari).
